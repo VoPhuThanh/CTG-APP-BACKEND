@@ -1,0 +1,19 @@
+services:
+  database:
+    image: postgres:17
+    container_name: ctg_app_database
+    restart: always
+
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: PhuThanh2004
+      POSTGRES_DB: project_db
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
