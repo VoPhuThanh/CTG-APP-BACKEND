@@ -1,0 +1,31 @@
+{
+  "name": "ctg-app-frontend",
+  "version": "1.0.0",
+  "description": "CITYGYM APP Monorepo",
+  "main": "index.js",
+  "private": "true",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VoPhuThanh/CTG-APP-FRONTEND.git"
+  },
+  "devDependencies": {
+    "eslint": "^10.5.0"
+  },
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "type":"commonjs",
+  "dependencies": {
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.4",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.62.0"
+  }
+}
