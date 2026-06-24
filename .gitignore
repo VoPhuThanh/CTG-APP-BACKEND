@@ -37,6 +37,11 @@ bower_components
 # Compiled binary addons (https://nodejs.org/api/addons.html)
 build/Release
 
+#Build
+build/
+
+dist/..
+
 # Dependency directories
 node_modules/
 jspm_packages/
@@ -141,3 +146,6 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+#postgre data
+postgres_data/
