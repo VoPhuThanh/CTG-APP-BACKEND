@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id String @id @default(uuid())
+  username String @unique
+  accountName String
+  passwordHash String
+
+  roleId String 
+  role Role @relation(fields: [roleId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdById String?
+  createdBy   User? @relation("UserCreatedBy", fields: [createdById], references: [id])
+
+  updatedById String?
+  updatedBy   User? @relation("UserUpdatedBy", fields: [updatedById], references: [id])
+
+  createdUsers User[] @relation("UserCreatedBy")
+  updatedUsers User[] @relation("UserUpdatedBy")
+
+
+  createdRoles Role[] @relation("RoleCreatedBy")
+  updatedRoles Role[] @relation("RoleUpdatedBy")
+
+  createdPermission Permission[] @relation("PermissionCreatedBy")
+
+  updatedPermission Permission[] @relation("PermissionUpdatedBy")
+} 
+
+model Role {
+  id String @id @default(uuid())
+  roleName String @unique
+
+  User User[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdById String?
+  createdBy   User? @relation("RoleCreatedBy", fields: [createdById], references: [id])
+
+  updatedById String?
+  updatedBy   User? @relation("RoleUpdatedBy", fields: [updatedById], references: [id])
+
+  RolePermission RolePermission[]
+}
+
+model Permission {
+  id String @id @default(uuid())
+  permissionName String @unique
+
+  RolePermission RolePermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdById String?
+  updatedById String?
+
+  createdBy User? @relation("PermissionCreatedBy", fields: [createdById], references: [id])
+  updatedBy User? @relation("PermissionUpdatedBy",fields: [updatedById],references: [id])
+}
+
+model RolePermission {
+  roleId String
+  permissionId String
+
+  npmcreatedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  role Role @relation(fields: [roleId], references: [id])
+
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId,permissionId])
+}
