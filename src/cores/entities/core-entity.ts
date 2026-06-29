@@ -32,4 +32,12 @@ export abstract class BaseEntityCore {
     name: 'updated_by',
   })
   updatedBy?: User;
+
+  @ManyToOne(() => User, {
+    nullable: true,
+  })
+  @JoinColumn({
+    name: 'deleted_by',
+  })
+  deletedBy?: User;
 }
