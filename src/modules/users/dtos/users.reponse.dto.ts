@@ -1,20 +1,17 @@
 import { RoleReponseDto } from '@/modules/roles/dtos/role.dto';
-import { Exclude, Expose, Type } from 'class-transformer';
+import { metadataResponseDto } from '@/cores/dtos/metadata.dto';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class UserResponseDto {
-  @Expose()
+  @ApiProperty()
   id!: string;
 
-  @Expose()
+  @ApiProperty()
   username!: string;
 
-  @Expose()
-  @Type(() => RoleReponseDto)
+  @ApiProperty()
   role!: RoleReponseDto;
 
-  @Expose()
-  createdAt!: Date;
-
-  @Exclude()
-  passwordHash!: string;
+  @ApiProperty()
+  metadata!: metadataResponseDto;
 }
