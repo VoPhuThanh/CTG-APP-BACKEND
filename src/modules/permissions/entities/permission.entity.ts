@@ -1,36 +1,28 @@
 import { BaseEntityCore } from '@/cores/entities/core-entity';
-import { Permission } from '@/modules/permissions/entities/permission.entity';
+import { Role } from '@/modules/roles/entities/role.entity';
 import { User } from '@/modules/users/entities/user.entity';
 import {
   Column,
   Entity,
   JoinColumn,
-  JoinTable,
   ManyToMany,
   ManyToOne,
-  OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
-@Entity('roles')
-export class Role extends BaseEntityCore {
+@Entity('permissions')
+export class Permission extends BaseEntityCore {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ unique: true, length: 50 })
+  @Column({ unique: true })
   name!: string;
 
-  @Column({ nullable: true })
+  @Column()
   description!: string;
 
-  @OneToMany(() => User, (user) => user.role)
-  users!: User[];
-
-  @ManyToMany(() => Permission)
-  @JoinTable({
-    name: 'role_permission',
-  })
-  permissions!: Permission[];
+  @ManyToMany(() => Role)
+  roles!: Role[];
 
   @ManyToOne(() => User, {
     nullable: true,

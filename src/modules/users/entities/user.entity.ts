@@ -1,6 +1,5 @@
 import { BaseEntityCore } from '@/cores/entities/core-entity';
 import { Role } from '@/modules/roles/entities/role.entity';
-import { Exclude } from 'class-transformer';
 import {
   Column,
   Entity,
@@ -27,4 +26,28 @@ export class User extends BaseEntityCore {
     name: 'role_id',
   })
   role!: Role;
+
+  @ManyToOne(() => User, {
+    nullable: true,
+  })
+  @JoinColumn({
+    name: 'created_by',
+  })
+  createdBy?: User;
+
+  @ManyToOne(() => User, {
+    nullable: true,
+  })
+  @JoinColumn({
+    name: 'updated_by',
+  })
+  updatedBy?: User;
+
+  @ManyToOne(() => User, {
+    nullable: true,
+  })
+  @JoinColumn({
+    name: 'deleted_by',
+  })
+  deletedBy?: User;
 }
