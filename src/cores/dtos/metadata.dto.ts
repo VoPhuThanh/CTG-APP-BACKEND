@@ -7,6 +7,6 @@ export class metadataResponseDto {
   updatedAt!: Date;
   updatedBy?: UserDto | null;
 
-  deletedAt!: Date;
+  deletedAt!: Date | undefined;
   deletedBy?: UserDto | null;
 }

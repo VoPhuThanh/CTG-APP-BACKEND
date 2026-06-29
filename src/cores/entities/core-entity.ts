@@ -1,11 +1,4 @@
-import { User } from '@/modules/users/entities/user.entity';
-import {
-  CreateDateColumn,
-  DeleteDateColumn,
-  JoinColumn,
-  ManyToOne,
-  UpdateDateColumn,
-} from 'typeorm';
+import { CreateDateColumn, DeleteDateColumn, UpdateDateColumn } from 'typeorm';
 
 export abstract class BaseEntityCore {
   @CreateDateColumn()
@@ -16,28 +9,4 @@ export abstract class BaseEntityCore {
 
   @DeleteDateColumn()
   deletedAt!: Date;
-
-  @ManyToOne(() => User, {
-    nullable: true,
-  })
-  @JoinColumn({
-    name: 'created_by',
-  })
-  createdBy?: User;
-
-  @ManyToOne(() => User, {
-    nullable: true,
-  })
-  @JoinColumn({
-    name: 'updated_by',
-  })
-  updatedBy?: User;
-
-  @ManyToOne(() => User, {
-    nullable: true,
-  })
-  @JoinColumn({
-    name: 'deleted_by',
-  })
-  deletedBy?: User;
 }

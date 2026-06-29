@@ -1,22 +1,32 @@
-import { mapUserToReponses } from '@/modules/users/users.mapper';
+import { User } from '@/modules/users/entities/user.entity';
+import { mapUserSummaryToResponse } from './user.mapper';
 import { metadataResponseDto } from '../dtos/metadata.dto';
-import { BaseEntityCore } from '../entities/core-entity';
 
-export function mapMetadataToResponse(
-  metadata: BaseEntityCore,
-): metadataResponseDto {
+export function mapMetadataToResponse(entity: {
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt?: Date;
+
+  createdBy?: User;
+  updatedBy?: User;
+  deletedBy?: User;
+}): metadataResponseDto {
   const dto = new metadataResponseDto();
-  dto.createdAt = metadata.createdAt;
-  dto.createdBy = metadata.createdBy
-    ? mapUserToReponses(metadata.createdBy)
+
+  dto.createdAt = entity.createdAt;
+  dto.updatedAt = entity.updatedAt;
+  dto.deletedAt = entity.deletedAt;
+
+  dto.createdBy = entity.createdBy
+    ? mapUserSummaryToResponse(entity.createdBy)
     : null;
-  dto.updatedAt = metadata.updatedAt;
-  dto.updatedBy = metadata.updatedBy
-    ? mapUserToReponses(metadata.updatedBy)
+
+  dto.updatedBy = entity.updatedBy
+    ? mapUserSummaryToResponse(entity.updatedBy)
     : null;
-  dto.deletedAt = metadata.deletedAt;
-  dto.deletedBy = metadata.deletedBy
-    ? mapUserToReponses(metadata.deletedBy)
+
+  dto.deletedBy = entity.deletedBy
+    ? mapUserSummaryToResponse(entity.deletedBy)
     : null;
   return dto;
 }
