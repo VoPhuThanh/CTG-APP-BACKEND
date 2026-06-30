@@ -11,7 +11,7 @@ import {
 } from 'typeorm';
 
 @Entity('permissions')
-export class Permission extends BaseEntityCore {
+export class Permissions extends BaseEntityCore {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
