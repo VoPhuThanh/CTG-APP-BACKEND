@@ -1,5 +1,5 @@
 import { metadataResponseDto } from '@/cores/dtos/metadata.dto';
-import { permissionDto } from '@/cores/dtos/permission.dto';
+import { PermissionDto } from '@/cores/dtos/permission.dto';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class RoleReponseDto {
@@ -10,7 +10,7 @@ export class RoleReponseDto {
   name!: string;
 
   @ApiProperty()
-  permission!: permissionDto[];
+  permission!: PermissionDto[];
 
   @ApiProperty()
   metadata!: metadataResponseDto;

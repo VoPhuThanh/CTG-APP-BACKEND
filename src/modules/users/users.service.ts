@@ -23,7 +23,9 @@ export class UsersService {
   async findAll() {
     const users = await this.userRepository.find({
       relations: {
-        role: true,
+        role: {
+          permissions: true,
+        },
       },
     });
     return mapUsersToResponses(users);
@@ -35,7 +37,9 @@ export class UsersService {
     const user = await this.userRepository.findOne({
       where: { id },
       relations: {
-        role: true,
+        role: {
+          permissions: true,
+        },
       },
     });
     console.log('Found user:', user);
