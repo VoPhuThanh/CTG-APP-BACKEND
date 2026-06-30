@@ -1,6 +1,6 @@
-import { RoleReponseDto } from '@/modules/roles/dtos/role.dto';
 import { metadataResponseDto } from '@/cores/dtos/metadata.dto';
 import { ApiProperty } from '@nestjs/swagger';
+import { RoleDto } from '@/cores/dtos/role.dto';
 
 export class UserResponseDto {
   @ApiProperty()
@@ -10,7 +10,7 @@ export class UserResponseDto {
   username!: string;
 
   @ApiProperty()
-  role!: RoleReponseDto;
+  role!: RoleDto;
 
   @ApiProperty()
   metadata!: metadataResponseDto;

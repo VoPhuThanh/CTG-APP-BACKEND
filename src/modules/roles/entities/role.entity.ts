@@ -1,5 +1,5 @@
 import { BaseEntityCore } from '@/cores/entities/core-entity';
-import { Permission } from '@/modules/permissions/entities/permission.entity';
+import { Permissions } from '@/modules/permissions/entities/permission.entity';
 import { User } from '@/modules/users/entities/user.entity';
 import {
   Column,
@@ -26,11 +26,11 @@ export class Role extends BaseEntityCore {
   @OneToMany(() => User, (user) => user.role)
   users!: User[];
 
-  @ManyToMany(() => Permission)
+  @ManyToMany(() => Permissions)
   @JoinTable({
     name: 'role_permission',
   })
-  permissions!: Permission[];
+  permissions!: Permissions[];
 
   @ManyToOne(() => User, {
     nullable: true,

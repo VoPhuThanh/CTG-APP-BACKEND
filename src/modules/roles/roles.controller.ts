@@ -6,11 +6,13 @@ import {
   Param,
   Patch,
   Post,
+  Put,
 } from '@nestjs/common';
 import { RolesService } from './roles.service';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RoleCreateDto } from './dtos/create-role.dto';
 import { RoleUpdateDto } from './dtos/update-role.dto';
+import { UpdateRolePermissionDto } from './dtos/update-role-permission.dto';
 
 @ApiTags('Roles')
 @Controller('roles')
@@ -44,5 +46,14 @@ export class RolesController {
   @Delete(':id')
   delete(@Param('id') id: string) {
     return this.rolesService.delete(id);
+  }
+
+  @ApiOperation({ summary: 'Update permission list inside role' })
+  @Put(':id')
+  permissionAssign(
+    @Param('id') id: string,
+    @Body() dto: UpdateRolePermissionDto,
+  ) {
+    return this.rolesService.permissionAssign(id, dto);
   }
 }
