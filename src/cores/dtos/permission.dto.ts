@@ -1,4 +1,4 @@
-export class permissionDto {
+export class PermissionDto {
   id!: string;
 
   name!: string;
