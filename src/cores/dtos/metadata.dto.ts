@@ -1,6 +1,6 @@
 import { UserDto } from './user.dto';
 
-export class metadataResponseDto {
+export class MetadataResponseDto {
   createdAt!: Date;
   createdBy?: UserDto | null;
 

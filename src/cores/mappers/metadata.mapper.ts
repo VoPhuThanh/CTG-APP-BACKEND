@@ -1,6 +1,6 @@
 import { User } from '@/modules/users/entities/user.entity';
 import { mapUserSummaryToResponse } from './user.mapper';
-import { metadataResponseDto } from '../dtos/metadata.dto';
+import { MetadataResponseDto } from '../dtos/metadata.dto';
 
 export function mapMetadataToResponse(entity: {
   createdAt: Date;
@@ -10,8 +10,8 @@ export function mapMetadataToResponse(entity: {
   createdBy?: User;
   updatedBy?: User;
   deletedBy?: User;
-}): metadataResponseDto {
-  const dto = new metadataResponseDto();
+}): MetadataResponseDto {
+  const dto = new MetadataResponseDto();
 
   dto.createdAt = entity.createdAt;
   dto.updatedAt = entity.updatedAt;

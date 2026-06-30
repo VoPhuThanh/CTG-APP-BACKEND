@@ -20,15 +20,16 @@ export class RolesService {
     @InjectRepository(Permissions)
     private readonly permissionRepository: Repository<Permissions>,
   ) {}
+
   async findAll() {
     const roles = await this.roleRepository.find({
       relations: {
         permissions: true,
       },
     });
-    console.log(roles);
     return mapRolesToResponses(roles);
   }
+
   private async findEntityById(id: string): Promise<Role> {
     const role = await this.roleRepository.findOne({
       where: { id },
@@ -43,6 +44,7 @@ export class RolesService {
     }
     return role;
   }
+
   async findOne(id: string): Promise<RoleReponseDto> {
     const role = await this.findEntityById(id);
     return mapRoleToResponse(role);
@@ -99,6 +101,7 @@ export class RolesService {
 
     return this.findOne(role.id);
   }
+
   async delete(id: string): Promise<RoleReponseDto> {
     const role = await this.findEntityById(id);
 
@@ -107,6 +110,7 @@ export class RolesService {
     await this.roleRepository.save(role);
     return mapRoleToResponse(role);
   }
+
   async permissionAssign(
     id: string,
     dto: UpdateRolePermissionDto,

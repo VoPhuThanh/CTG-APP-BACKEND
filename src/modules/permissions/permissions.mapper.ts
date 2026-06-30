@@ -1,14 +1,21 @@
 import { mapMetadataToResponse } from '@/cores/mappers/metadata.mapper';
-import { permissionResponseDto } from './dtos/permission.dto';
+import { PermissionResponseDto } from './dtos/permission.dto';
 import { Permissions } from './entities/permission.entity';
+import { PermissionDto } from '@/cores/dtos/permission.dto';
 
 export function mapPermissionToReponse(
   permission: Permissions,
-): permissionResponseDto {
-  const dto = new permissionResponseDto();
+): PermissionResponseDto {
+  const dto = new PermissionResponseDto();
   dto.id = permission.id;
   dto.name = permission.name;
+  dto.description = permission.description;
   dto.metadata = mapMetadataToResponse(permission);
 
   return dto;
+}
+export function mapPermissionsToReponses(
+  permission: Permissions[],
+): PermissionDto[] {
+  return permission.map(mapPermissionToReponse);
 }
