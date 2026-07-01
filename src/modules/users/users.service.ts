@@ -1,15 +1,20 @@
 import { ErrorCode } from '@/cores/constants/error-code.constant';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { mapUserToReponses, mapUsersToResponses } from './users.mapper';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { type Repository } from 'typeorm';
 import { User } from './entities/user.entity';
-import { UserCreateDto } from './dtos/create-users.dto';
+import type { UserCreateDto } from './dtos/create-users.dto';
 import { Role } from '../roles/entities/role.entity';
 import * as bcrypt from 'bcrypt';
 import { HandleError } from '@/cores/serializers/errors/handle.errors';
-import { UserResponseDto } from './dtos/users.reponse.dto';
-import { UserUpdateDto } from './dtos/update-users.dto';
+import type { UserResponseDto } from './dtos/users.reponse.dto';
+import type { UserUpdateDto } from './dtos/update-users.dto';
+import { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
 
 @Injectable()
 export class UsersService {
@@ -32,8 +37,6 @@ export class UsersService {
   }
 
   private async findEntityById(id: string): Promise<User> {
-    console.log('Searching user id:', id);
-
     const user = await this.userRepository.findOne({
       where: { id },
       relations: {
@@ -42,7 +45,6 @@ export class UsersService {
         },
       },
     });
-    console.log('Found user:', user);
     if (!user) {
       throw new NotFoundException({
         statusCode: 404,
@@ -56,7 +58,21 @@ export class UsersService {
     const user = await this.findEntityById(id);
     return mapUserToReponses(user);
   }
-  async create(dto: UserCreateDto): Promise<UserResponseDto> {
+  async create(
+    dto: UserCreateDto,
+    currentUser: AuthenticatedUser,
+  ): Promise<UserResponseDto> {
+    if (!currentUser?.id) {
+      throw new UnauthorizedException('Authentication required');
+    }
+    const creator = await this.userRepository.findOne({
+      where: {
+        id: currentUser.id,
+      },
+    });
+    if (!creator) {
+      throw new UnauthorizedException('Current user not found');
+    }
     const existingUser = await this.userRepository.findOne({
       where: {
         username: dto.username,
@@ -83,11 +99,28 @@ export class UsersService {
       username: dto.username,
       passwordHash,
       role,
+      createdBy: creator,
+      updatedBy: creator,
     });
     await this.userRepository.save(user);
     return this.findOne(user.id);
   }
-  async update(id: string, dto: UserUpdateDto): Promise<UserResponseDto> {
+  async update(
+    id: string,
+    dto: UserUpdateDto,
+    currentUser: AuthenticatedUser,
+  ): Promise<UserResponseDto> {
+    if (!currentUser?.id) {
+      throw new UnauthorizedException('Authentication required');
+    }
+    const updater = await this.userRepository.findOne({
+      where: {
+        id: currentUser.id,
+      },
+    });
+    if (!updater) {
+      throw new UnauthorizedException('Current user not found');
+    }
     const user = await this.findEntityById(id);
 
     if (dto.username) user.username = dto.username;
@@ -106,15 +139,30 @@ export class UsersService {
     }
     if (dto.password) user.passwordHash = await bcrypt.hash(dto.password, 12);
 
+    user.updatedBy = updater;
+
     await this.userRepository.save(user);
     return this.findOne(user.id);
   }
-  async delete(id: string): Promise<UserResponseDto> {
+  async delete(id: string, currentUser: AuthenticatedUser): Promise<void> {
+    if (!currentUser?.id) {
+      throw new UnauthorizedException('Authentication required');
+    }
+    const deleter = await this.userRepository.findOne({
+      where: {
+        id: currentUser.id,
+      },
+    });
+    if (!deleter) {
+      throw new UnauthorizedException('Current user not found');
+    }
     const user = await this.findEntityById(id);
 
-    user.deletedAt = new Date();
-
-    await this.userRepository.save(user);
-    return mapUserToReponses(user);
+    await this.userRepository.manager.transaction(async (manager) => {
+      await manager.update(User, user.id, {
+        deletedBy: deleter,
+      });
+      await manager.softDelete(User, user.id);
+    });
   }
 }

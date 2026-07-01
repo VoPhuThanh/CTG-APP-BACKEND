@@ -1,20 +1,29 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Permissions } from './entities/permission.entity';
-import { Repository } from 'typeorm';
+import type { Repository } from 'typeorm';
 import {
   mapPermissionsToReponses,
   mapPermissionToReponse,
 } from './permissions.mapper';
 import { ErrorCode } from '@/cores/constants/error-code.constant';
-import { PermissionCreateDto } from './dtos/create-permission.dto';
-import { PermissionResponseDto } from './dtos/permission.dto';
+import type { PermissionCreateDto } from './dtos/create-permission.dto';
+import type { PermissionResponseDto } from './dtos/permission.dto';
 import { HandleError } from '@/cores/serializers/errors/handle.errors';
-import { PermissionUpdateDto } from './dtos/update-permission.dto';
+import type { PermissionUpdateDto } from './dtos/update-permission.dto';
+import { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
+import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class PermissionsService {
   constructor(
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+
     @InjectRepository(Permissions)
     private readonly permissionRepository: Repository<Permissions>,
   ) {}
@@ -40,7 +49,21 @@ export class PermissionsService {
     const permission = await this.findEntityById(id);
     return mapPermissionToReponse(permission);
   }
-  async create(dto: PermissionCreateDto): Promise<PermissionResponseDto> {
+  async create(
+    dto: PermissionCreateDto,
+    currentUser: AuthenticatedUser,
+  ): Promise<PermissionResponseDto> {
+    if (!currentUser?.id) {
+      throw new UnauthorizedException('Authentication required');
+    }
+    const creator = await this.userRepository.findOne({
+      where: {
+        id: currentUser.id,
+      },
+    });
+    if (!creator) {
+      throw new UnauthorizedException('Current user not found');
+    }
     const existingPermission = await this.permissionRepository.findOne({
       where: {
         name: dto.name,
@@ -54,6 +77,8 @@ export class PermissionsService {
     const permission = this.permissionRepository.create({
       name: dto.name,
       description: dto.description,
+      createdBy: creator,
+      updatedBy: creator,
     });
     await this.permissionRepository.save(permission);
     return this.findOne(permission.id);
@@ -61,22 +86,47 @@ export class PermissionsService {
   async update(
     id: string,
     dto: PermissionUpdateDto,
+    currentUser: AuthenticatedUser,
   ): Promise<PermissionResponseDto> {
-    console.log(dto);
+    if (!currentUser?.id) {
+      throw new UnauthorizedException('Authentication required');
+    }
+    const updater = await this.userRepository.findOne({
+      where: {
+        id: currentUser.id,
+      },
+    });
+    if (!updater) {
+      throw new UnauthorizedException('Current user not found');
+    }
     const permission = await this.findEntityById(id);
 
     if (dto.name) permission.name = dto.name;
     if (dto.description) permission.description = dto.description;
+    permission.updatedBy = updater;
 
     await this.permissionRepository.save(permission);
     return this.findOne(permission.id);
   }
-  async delete(id: string): Promise<PermissionResponseDto> {
+  async delete(id: string, currentUser: AuthenticatedUser): Promise<void> {
+    if (!currentUser?.id) {
+      throw new UnauthorizedException('Authentication required');
+    }
+    const deleter = await this.userRepository.findOne({
+      where: {
+        id: currentUser.id,
+      },
+    });
+    if (!deleter) {
+      throw new UnauthorizedException('Current user not found');
+    }
     const permission = await this.findEntityById(id);
 
-    permission.deletedAt = new Date();
-
-    await this.permissionRepository.save(permission);
-    return mapPermissionToReponse(permission);
+    await this.permissionRepository.manager.transaction(async (manager) => {
+      await manager.update(Permissions, permission.id, {
+        deletedBy: deleter,
+      });
+      await manager.softDelete(Permissions, permission.id);
+    });
   }
 }

@@ -1,19 +1,28 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Role } from './entities/role.entity';
-import { In, Repository } from 'typeorm';
+import { In, type Repository } from 'typeorm';
 import { mapRoleToResponse, mapRolesToResponses } from './roles.mapper';
 import { ErrorCode } from '@/cores/constants/error-code.constant';
-import { RoleReponseDto } from './dtos/role.dto';
-import { RoleCreateDto } from './dtos/create-role.dto';
+import type { RoleReponseDto } from './dtos/role.dto';
+import type { RoleCreateDto } from './dtos/create-role.dto';
 import { HandleError } from '@/cores/serializers/errors/handle.errors';
-import { RoleUpdateDto } from './dtos/update-role.dto';
+import type { RoleUpdateDto } from './dtos/update-role.dto';
 import { Permissions } from '../permissions/entities/permission.entity';
-import { UpdateRolePermissionDto } from './dtos/update-role-permission.dto';
+import type { UpdateRolePermissionDto } from './dtos/update-role-permission.dto';
+import { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
+import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class RolesService {
   constructor(
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>,
 
@@ -50,7 +59,21 @@ export class RolesService {
     return mapRoleToResponse(role);
   }
 
-  async create(dto: RoleCreateDto): Promise<RoleReponseDto> {
+  async create(
+    dto: RoleCreateDto,
+    currentUser: AuthenticatedUser,
+  ): Promise<RoleReponseDto> {
+    if (!currentUser?.id) {
+      throw new UnauthorizedException('Authentication required');
+    }
+    const creator = await this.userRepository.findOne({
+      where: {
+        id: currentUser.id,
+      },
+    });
+    if (!creator) {
+      throw new UnauthorizedException('Current user not found');
+    }
     const existingRole = await this.roleRepository.findOne({
       where: { name: dto.name },
     });
@@ -73,12 +96,29 @@ export class RolesService {
       name: dto.name,
       description: dto.description,
       permissions,
+      createdBy: creator,
+      updatedBy: creator,
     });
     await this.roleRepository.save(role);
     return this.findOne(role.id);
   }
 
-  async update(id: string, dto: RoleUpdateDto): Promise<RoleReponseDto> {
+  async update(
+    id: string,
+    dto: RoleUpdateDto,
+    currentUser: AuthenticatedUser,
+  ): Promise<RoleReponseDto> {
+    if (!currentUser?.id) {
+      throw new UnauthorizedException('Authentication required');
+    }
+    const updater = await this.userRepository.findOne({
+      where: {
+        id: currentUser.id,
+      },
+    });
+    if (!updater) {
+      throw new UnauthorizedException('Current user not found');
+    }
     const role = await this.findEntityById(id);
 
     if (dto.name) role.name = dto.name;
@@ -96,25 +136,50 @@ export class RolesService {
       }
       role.permissions = permissions;
     }
-
+    role.updatedBy = updater;
     await this.roleRepository.save(role);
 
     return this.findOne(role.id);
   }
 
-  async delete(id: string): Promise<RoleReponseDto> {
+  async delete(id: string, currentUser: AuthenticatedUser): Promise<void> {
+    if (!currentUser?.id) {
+      throw new UnauthorizedException('Authentication required');
+    }
+    const deleter = await this.userRepository.findOne({
+      where: {
+        id: currentUser.id,
+      },
+    });
+    if (!deleter) {
+      throw new UnauthorizedException('Current user not found');
+    }
     const role = await this.findEntityById(id);
 
-    role.deletedAt = new Date();
-
-    await this.roleRepository.save(role);
-    return mapRoleToResponse(role);
+    await this.roleRepository.manager.transaction(async (manager) => {
+      await manager.update(Role, role.id, {
+        deletedBy: deleter,
+      });
+      await manager.softDelete(Role, role.id);
+    });
   }
 
   async permissionAssign(
     id: string,
     dto: UpdateRolePermissionDto,
+    currentUser: AuthenticatedUser,
   ): Promise<RoleReponseDto> {
+    if (!currentUser?.id) {
+      throw new UnauthorizedException('Authentication required');
+    }
+    const updater = await this.userRepository.findOne({
+      where: {
+        id: currentUser.id,
+      },
+    });
+    if (!updater) {
+      throw new UnauthorizedException('Current user not found');
+    }
     const role = await this.roleRepository.findOne({
       where: { id },
       relations: {
@@ -139,6 +204,7 @@ export class RolesService {
       });
     }
     role.permissions = permissions;
+    role.updatedBy = updater;
     await this.roleRepository.save(role);
     return this.findOne(role.id);
   }

@@ -9,6 +9,7 @@ async function bootstrap() {
     .setTitle('CTG BACKEND API')
     .setDescription('API DOCUMENTATION')
     .setVersion('0.0.1')
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
