@@ -19,6 +19,12 @@ export class Permissions extends BaseEntityCore {
   name!: string;
 
   @Column()
+  action!: string;
+
+  @Column()
+  module!: string;
+
+  @Column({ nullable: true })
   description!: string;
 
   @ManyToMany(() => Role)

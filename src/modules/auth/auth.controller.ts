@@ -10,6 +10,7 @@ import { LoginReponseDto } from './dtos/login-response.dto';
 import { LoginDto } from './dtos/login.dto';
 import type { AuthenticatedUser } from './interfaces/authenticated-users.interface';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { PermissionsGuard } from '@/cores/guards/permissions.guard';
 
 type AuthenticatedRequest = Request & {
   user: AuthenticatedUser;
@@ -28,7 +29,7 @@ export class AuthController {
   }
 
   @Get('me')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()
   getMe(@Req() request: AuthenticatedRequest): AuthenticatedUser {
     return request.user;

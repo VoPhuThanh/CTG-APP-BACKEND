@@ -21,7 +21,7 @@ async function seed() {
 
   if (!adminPermissions) {
     adminPermissions = permissionRepository.create({
-      name: 'ADMIN_PERM',
+      name: 'system:admin',
       description: 'Full admin permissions',
     });
 

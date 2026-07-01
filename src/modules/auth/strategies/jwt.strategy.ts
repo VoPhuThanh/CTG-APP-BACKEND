@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { IsNull, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
 import { AuthenticatedUser } from '../interfaces/authenticated-users.interface';
 
@@ -27,10 +27,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const user = await this.userRepository.findOne({
       where: {
         id: payload.sub,
-        deletedAt: IsNull(),
       },
       relations: {
-        role: true,
+        role: {
+          permissions: true,
+        },
       },
     });
     if (!user) throw new UnauthorizedException('Invalid authentication');
@@ -39,6 +40,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       id: user.id,
       username: user.username,
       role: user.role ? { id: user.role.id, name: user.role.name } : null,
+      permissions:
+        user.role?.permissions.map((permission) => permission.name) ?? [],
     };
   }
 }

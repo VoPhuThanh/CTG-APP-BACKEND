@@ -77,6 +77,8 @@ export class PermissionsService {
     const permission = this.permissionRepository.create({
       name: dto.name,
       description: dto.description,
+      module: dto.module,
+      action: dto.action,
       createdBy: creator,
       updatedBy: creator,
     });
@@ -103,6 +105,9 @@ export class PermissionsService {
 
     if (dto.name) permission.name = dto.name;
     if (dto.description) permission.description = dto.description;
+    if (dto.module) permission.module = dto.module;
+    if (dto.action) permission.action = dto.action;
+
     permission.updatedBy = updater;
 
     await this.permissionRepository.save(permission);

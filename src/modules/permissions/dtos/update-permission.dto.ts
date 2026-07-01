@@ -11,4 +11,14 @@ export class PermissionUpdateDto {
   @IsString()
   @IsOptional()
   description!: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  action!: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  module!: string;
 }

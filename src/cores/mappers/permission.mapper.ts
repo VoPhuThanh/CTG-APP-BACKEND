@@ -6,6 +6,8 @@ export function mapPermissionToSummary(permission: Permissions): PermissionDto {
 
   dto.id = permission.id;
   dto.name = permission.name;
+  dto.module = permission.module;
+  dto.action = permission.action;
 
   return dto;
 }

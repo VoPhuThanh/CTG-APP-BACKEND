@@ -10,6 +10,8 @@ export function mapPermissionToReponse(
   dto.id = permission.id;
   dto.name = permission.name;
   dto.description = permission.description;
+  dto.action = permission.action;
+  dto.module = permission.module;
   dto.metadata = mapMetadataToResponse(permission);
 
   return dto;

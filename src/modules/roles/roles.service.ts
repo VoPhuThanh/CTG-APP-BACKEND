@@ -123,20 +123,6 @@ export class RolesService {
 
     if (dto.name) role.name = dto.name;
     if (dto.description) role.description = dto.description;
-    if (dto.permissionId) {
-      const permissions = await this.permissionRepository.find({
-        where: {
-          id: In(dto.permissionId),
-        },
-      });
-      if (permissions.length !== dto.permissionId.length) {
-        throw HandleError.badRequest({
-          code: 'DATA.PERMISSION_DOESNT_EXIST',
-        });
-      }
-      role.permissions = permissions;
-    }
-    role.updatedBy = updater;
     await this.roleRepository.save(role);
 
     return this.findOne(role.id);
@@ -205,6 +191,7 @@ export class RolesService {
     }
     role.permissions = permissions;
     role.updatedBy = updater;
+    role.updatedAt = new Date();
     await this.roleRepository.save(role);
     return this.findOne(role.id);
   }

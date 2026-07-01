@@ -7,37 +7,42 @@ import {
   Patch,
   Post,
   Put,
+  UseGuards,
 } from '@nestjs/common';
 import { RolesService } from './roles.service';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RoleCreateDto } from './dtos/create-role.dto';
 import { RoleUpdateDto } from './dtos/update-role.dto';
 import { UpdateRolePermissionDto } from './dtos/update-role-permission.dto';
 import { CurrentUser } from '@/cores/decorators/current-user.decorators';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
-import { Authenticated } from '@/cores/decorators/authenticated.decorators';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '@/cores/guards/permissions.guard';
+import { Authorized } from '@/cores/decorators/authorized.decorators';
 
 @ApiTags('Roles')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('roles')
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
   @ApiOperation({ summary: 'Find all roles' })
-  @Authenticated()
+  @Authorized('roles:read')
   @Get()
   findAll() {
     return this.rolesService.findAll();
   }
 
   @ApiOperation({ summary: 'Find roles by id' })
-  @Authenticated()
+  @Authorized('roles:read')
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.rolesService.findOne(id);
   }
 
   @ApiOperation({ summary: 'Create roles' })
-  @Authenticated()
+  @Authorized('roles:create')
   @Post()
   create(
     @Body() dto: RoleCreateDto,
@@ -47,7 +52,7 @@ export class RolesController {
   }
 
   @ApiOperation({ summary: 'Update roles' })
-  @Authenticated()
+  @Authorized('roles:update')
   @Patch(':id')
   update(
     @Param('id') id: string,
@@ -57,7 +62,7 @@ export class RolesController {
     return this.rolesService.update(id, dto, currentUser);
   }
   @ApiOperation({ summary: 'Soft delete roles' })
-  @Authenticated()
+  @Authorized('roles:delete')
   @Delete(':id')
   delete(
     @Param('id') id: string,
@@ -67,7 +72,7 @@ export class RolesController {
   }
 
   @ApiOperation({ summary: 'Update permission list inside role' })
-  @Authenticated()
+  @Authorized('roles:update')
   @Put(':id/permissions')
   permissionAssign(
     @Param('id') id: string,

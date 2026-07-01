@@ -10,4 +10,12 @@ export class PermissionCreateDto {
   @IsString()
   @IsOptional()
   description!: string;
+
+  @ApiProperty()
+  @IsString()
+  module!: string;
+
+  @ApiProperty()
+  @IsString()
+  action!: string;
 }

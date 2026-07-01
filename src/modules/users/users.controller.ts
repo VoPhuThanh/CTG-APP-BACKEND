@@ -6,35 +6,41 @@ import {
   Param,
   Patch,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UserCreateDto } from './dtos/create-users.dto';
 import { UserUpdateDto } from './dtos/update-users.dto';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@/cores/decorators/current-user.decorators';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
-import { Authenticated } from '@/cores/decorators/authenticated.decorators';
+import { PermissionsGuard } from '@/cores/guards/permissions.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Authorized } from '@/cores/decorators/authorized.decorators';
 
 @ApiTags('Users')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @ApiOperation({ summary: 'Find all users' })
-  @Authenticated()
+  @Authorized('users:read')
   @Get()
   findAll() {
     return this.usersService.findAll();
   }
 
   @ApiOperation({ summary: 'Find user by id' })
+  @Authorized('users:read')
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.usersService.findOne(id);
   }
 
   @ApiOperation({ summary: 'Create user' })
-  @Authenticated()
+  @Authorized('users:create')
   @Post()
   create(
     @Body() dto: UserCreateDto,
@@ -44,7 +50,7 @@ export class UsersController {
   }
 
   @ApiOperation({ summary: 'Update user' })
-  @Authenticated()
+  @Authorized('users:update')
   @Patch(':id')
   update(
     @Param('id') id: string,
@@ -55,7 +61,7 @@ export class UsersController {
   }
 
   @ApiOperation({ summary: 'Soft delete user' })
-  @Authenticated()
+  @Authorized('users:delete')
   @Delete(':id')
   delete(
     @Param('id') id: string,

@@ -9,6 +9,12 @@ export class PermissionResponseDto {
   name!: string;
 
   @ApiProperty()
+  module!: string;
+
+  @ApiProperty()
+  action!: string;
+
+  @ApiProperty()
   description!: string;
 
   @ApiProperty()
