@@ -6,7 +6,7 @@ import { LoginDto } from './dtos/login.dto';
 import { LoginReponseDto } from './dtos/login-response.dto';
 import { Repository } from 'typeorm/repository/Repository.js';
 import * as bcrypt from 'bcrypt';
-import { mapUserToReponses } from '../users/users.mapper';
+import { mapToAuthenticatedUser } from './auth.mapper';
 
 @Injectable()
 export class AuthService {
@@ -22,7 +22,11 @@ export class AuthService {
         username: dto.username,
       },
       relations: {
-        role: true,
+        role: {
+          permissions: true,
+        },
+        createdBy: true,
+        updatedBy: true,
       },
     });
 
@@ -48,7 +52,7 @@ export class AuthService {
 
     return {
       accessToken,
-      user: mapUserToReponses(user),
+      user: mapToAuthenticatedUser(user),
     };
   }
 }

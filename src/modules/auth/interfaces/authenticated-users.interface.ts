@@ -4,6 +4,6 @@ export interface AuthenticatedUser {
   role: {
     id: string;
     name: string;
-  } | null;
+  };
   permissions: string[];
 }

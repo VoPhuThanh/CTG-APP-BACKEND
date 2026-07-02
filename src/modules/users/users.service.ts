@@ -15,6 +15,13 @@ import { HandleError } from '@/cores/serializers/errors/handle.errors';
 import type { UserResponseDto } from './dtos/users.reponse.dto';
 import type { UserUpdateDto } from './dtos/update-users.dto';
 import { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
+import { PaginationQueryDto } from '@/cores/pagination/pagination-query.dto';
+import { PaginatedResponseDto } from '@/cores/pagination/pagination-response.dto';
+import {
+  buildPaginatedResponse,
+  getPaginationSkip,
+  getPaginationTake,
+} from '@/cores/pagination/pagination-utils';
 
 @Injectable()
 export class UsersService {
@@ -25,15 +32,29 @@ export class UsersService {
     @InjectRepository(Role)
     private readonly roleReposistory: Repository<Role>,
   ) {}
-  async findAll() {
-    const users = await this.userRepository.find({
+  async findAll(
+    query: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<UserResponseDto>> {
+    const [users, totalItems] = await this.userRepository.findAndCount({
       relations: {
         role: {
           permissions: true,
         },
+        createdBy: true,
+        updatedBy: true,
       },
+      order: {
+        createdAt: 'DESC',
+      },
+      skip: getPaginationSkip(query),
+      take: getPaginationTake(query),
     });
-    return mapUsersToResponses(users);
+
+    return buildPaginatedResponse(
+      mapUsersToResponses(users),
+      totalItems,
+      query,
+    );
   }
 
   private async findEntityById(id: string): Promise<User> {

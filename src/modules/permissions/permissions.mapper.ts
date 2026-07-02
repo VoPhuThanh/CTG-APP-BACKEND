@@ -1,7 +1,6 @@
 import { mapMetadataToResponse } from '@/cores/mappers/metadata.mapper';
 import { PermissionResponseDto } from './dtos/permission.dto';
 import { Permissions } from './entities/permission.entity';
-import { PermissionDto } from '@/cores/dtos/permission.dto';
 
 export function mapPermissionToReponse(
   permission: Permissions,
@@ -18,6 +17,6 @@ export function mapPermissionToReponse(
 }
 export function mapPermissionsToReponses(
   permission: Permissions[],
-): PermissionDto[] {
+): PermissionResponseDto[] {
   return permission.map(mapPermissionToReponse);
 }

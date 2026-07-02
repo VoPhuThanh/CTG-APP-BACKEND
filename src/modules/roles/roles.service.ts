@@ -16,6 +16,13 @@ import { Permissions } from '../permissions/entities/permission.entity';
 import type { UpdateRolePermissionDto } from './dtos/update-role-permission.dto';
 import { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
 import { User } from '../users/entities/user.entity';
+import { PaginationQueryDto } from '@/cores/pagination/pagination-query.dto';
+import { PaginatedResponseDto } from '@/cores/pagination/pagination-response.dto';
+import {
+  buildPaginatedResponse,
+  getPaginationSkip,
+  getPaginationTake,
+} from '@/cores/pagination/pagination-utils';
 
 @Injectable()
 export class RolesService {
@@ -30,13 +37,27 @@ export class RolesService {
     private readonly permissionRepository: Repository<Permissions>,
   ) {}
 
-  async findAll() {
-    const roles = await this.roleRepository.find({
+  async findAll(
+    query: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<RoleReponseDto>> {
+    const [roles, totalItems] = await this.roleRepository.findAndCount({
       relations: {
         permissions: true,
+
+        createdBy: true,
+        updatedBy: true,
       },
+      order: {
+        createdAt: 'DESC',
+      },
+      skip: getPaginationSkip(query),
+      take: getPaginationTake(query),
     });
-    return mapRolesToResponses(roles);
+    return buildPaginatedResponse(
+      mapRolesToResponses(roles),
+      totalItems,
+      query,
+    );
   }
 
   private async findEntityById(id: string): Promise<Role> {

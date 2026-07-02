@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOkResponse,
@@ -10,11 +10,7 @@ import { LoginReponseDto } from './dtos/login-response.dto';
 import { LoginDto } from './dtos/login.dto';
 import type { AuthenticatedUser } from './interfaces/authenticated-users.interface';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { PermissionsGuard } from '@/cores/guards/permissions.guard';
-
-type AuthenticatedRequest = Request & {
-  user: AuthenticatedUser;
-};
+import { CurrentUser } from '@/cores/decorators/current-user.decorators';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -29,9 +25,9 @@ export class AuthController {
   }
 
   @Get('me')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  getMe(@Req() request: AuthenticatedRequest): AuthenticatedUser {
-    return request.user;
+  getMe(@CurrentUser() user: AuthenticatedUser): AuthenticatedUser {
+    return user;
   }
 }

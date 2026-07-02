@@ -1,10 +1,10 @@
-import { UserResponseDto } from '@/modules/users/dtos/users.reponse.dto';
 import { ApiProperty } from '@nestjs/swagger';
+import { AuthUserResponseDto } from './auth-user.dto';
 
 export class LoginReponseDto {
   @ApiProperty()
   accessToken!: string;
 
-  @ApiProperty({ type: UserResponseDto })
-  user!: UserResponseDto;
+  @ApiProperty({ type: AuthUserResponseDto })
+  user!: AuthUserResponseDto;
 }

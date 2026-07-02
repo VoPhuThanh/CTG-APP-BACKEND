@@ -7,10 +7,16 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { RolesService } from './roles.service';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import { RoleCreateDto } from './dtos/create-role.dto';
 import { RoleUpdateDto } from './dtos/update-role.dto';
 import { UpdateRolePermissionDto } from './dtos/update-role-permission.dto';
@@ -19,6 +25,7 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-users.i
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '@/cores/guards/permissions.guard';
 import { Authorized } from '@/cores/decorators/authorized.decorators';
+import { PaginationQueryDto } from '@/cores/pagination/pagination-query.dto';
 
 @ApiTags('Roles')
 @ApiBearerAuth()
@@ -28,10 +35,13 @@ export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
   @ApiOperation({ summary: 'Find all roles' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  @ApiQuery({ name: 'search', required: false, type: String, example: 'admin' })
   @Authorized('roles:read')
   @Get()
-  findAll() {
-    return this.rolesService.findAll();
+  findAll(@Query() query: PaginationQueryDto) {
+    return this.rolesService.findAll(query);
   }
 
   @ApiOperation({ summary: 'Find roles by id' })

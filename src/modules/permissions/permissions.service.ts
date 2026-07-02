@@ -17,6 +17,13 @@ import { HandleError } from '@/cores/serializers/errors/handle.errors';
 import type { PermissionUpdateDto } from './dtos/update-permission.dto';
 import { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
 import { User } from '../users/entities/user.entity';
+import { PaginationQueryDto } from '@/cores/pagination/pagination-query.dto';
+import { PaginatedResponseDto } from '@/cores/pagination/pagination-response.dto';
+import {
+  buildPaginatedResponse,
+  getPaginationSkip,
+  getPaginationTake,
+} from '@/cores/pagination/pagination-utils';
 
 @Injectable()
 export class PermissionsService {
@@ -28,9 +35,27 @@ export class PermissionsService {
     private readonly permissionRepository: Repository<Permissions>,
   ) {}
 
-  async findAll() {
-    const permissions = await this.permissionRepository.find({});
-    return mapPermissionsToReponses(permissions);
+  async findAll(
+    query: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<PermissionResponseDto>> {
+    const [permissions, totalItems] =
+      await this.permissionRepository.findAndCount({
+        relations: {
+          createdBy: true,
+          updatedBy: true,
+        },
+        order: {
+          createdAt: 'DESC',
+        },
+        skip: getPaginationSkip(query),
+        take: getPaginationTake(query),
+      });
+
+    return buildPaginatedResponse(
+      mapPermissionsToReponses(permissions),
+      totalItems,
+      query,
+    );
   }
   private async findEntityById(id: string): Promise<Permissions> {
     const permission = await this.permissionRepository.findOne({
