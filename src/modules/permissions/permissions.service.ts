@@ -60,6 +60,7 @@ export class PermissionsService {
   private async findEntityById(id: string): Promise<Permissions> {
     const permission = await this.permissionRepository.findOne({
       where: { id },
+      relations: { createdBy: true, updatedBy: true },
     });
     if (!permission) {
       throw new NotFoundException({

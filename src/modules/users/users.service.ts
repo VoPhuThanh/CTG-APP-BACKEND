@@ -64,6 +64,8 @@ export class UsersService {
         role: {
           permissions: true,
         },
+        createdBy: true,
+        updatedBy: true,
       },
     });
     if (!user) {

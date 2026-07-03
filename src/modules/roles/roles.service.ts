@@ -63,7 +63,7 @@ export class RolesService {
   private async findEntityById(id: string): Promise<Role> {
     const role = await this.roleRepository.findOne({
       where: { id },
-      relations: { permissions: true },
+      relations: { permissions: true, createdBy: true, updatedBy: true },
     });
     if (!role) {
       throw new NotFoundException({
