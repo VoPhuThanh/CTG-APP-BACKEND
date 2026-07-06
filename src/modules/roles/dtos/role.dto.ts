@@ -13,7 +13,7 @@ export class RoleReponseDto {
   description!: string;
 
   @ApiProperty()
-  permission!: PermissionDto[];
+  permissions!: PermissionDto[];
 
   @ApiProperty()
   metadata!: MetadataResponseDto;

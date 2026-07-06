@@ -7,7 +7,7 @@ export function mapRoleToResponse(role: Role): RoleReponseDto {
   const dto = new RoleReponseDto();
   dto.id = role.id;
   dto.name = role.name;
-  dto.permission = (role.permissions ?? []).map((element) =>
+  dto.permissions = (role.permissions ?? []).map((element) =>
     mapPermissionToSummary(element),
   );
   dto.description = role.description;
