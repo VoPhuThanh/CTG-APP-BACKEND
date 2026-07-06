@@ -17,30 +17,32 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
   async login(dto: LoginDto): Promise<LoginReponseDto> {
-    const user = await this.userRepository.findOne({
-      where: {
-        username: dto.username,
-      },
-      relations: {
-        role: {
-          permissions: true,
-        },
-        createdBy: true,
-        updatedBy: true,
-      },
-    });
+    const { username, password } = dto;
+
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.role', 'role')
+      .leftJoinAndSelect('role.permissions', 'permission')
+      .leftJoinAndSelect('user.createdBy', 'createdBy')
+      .leftJoinAndSelect('user.updatedBy', 'updatedBy')
+      .addSelect('user.passwordHash')
+      .where('user.username = :username', { username })
+      .getOne();
 
     if (!user) {
       throw new UnauthorizedException('Invalid Username or password');
     }
 
-    const isPasswordValid = await bcrypt.compare(
-      dto.password,
-      user.passwordHash,
-    );
+    if (!user.isActive) {
+      throw new UnauthorizedException('User is deactivated');
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid Username or password');
     }
+
     const payload = {
       sub: user.id,
       username: user.username,

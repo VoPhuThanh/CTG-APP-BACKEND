@@ -1,5 +1,6 @@
 import { BaseEntityCore } from '@/cores/entities/core-entity';
 import { Role } from '@/modules/roles/entities/role.entity';
+import { Exclude } from 'class-transformer';
 import {
   Column,
   Entity,
@@ -13,11 +14,22 @@ export class User extends BaseEntityCore {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
+  @Column({ name: 'staff_id', unique: true, length: 50 })
+  staffId!: string;
+
   @Column({ unique: true })
   username!: string;
 
-  @Column()
+  @Exclude()
+  @Column({ name: 'password_hash', select: false })
   passwordHash!: string;
+
+  @Column({
+    name: 'is_active',
+    type: 'boolean',
+    default: true,
+  })
+  isActive!: boolean;
 
   @ManyToOne(() => Role, (role) => role.users, {
     nullable: false,

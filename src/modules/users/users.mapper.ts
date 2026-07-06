@@ -8,6 +8,8 @@ export function mapUserToReponses(user: User): UserResponseDto {
   dto.id = user.id;
   dto.username = user.username;
   dto.role = mapRoleToSummary(user.role);
+  dto.staffId = user.staffId;
+  dto.isActive = user.isActive;
   dto.metadata = mapMetadataToResponse(user);
   return dto;
 }

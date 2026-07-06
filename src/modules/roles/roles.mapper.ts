@@ -10,6 +10,7 @@ export function mapRoleToResponse(role: Role): RoleReponseDto {
   dto.permission = (role.permissions ?? []).map((element) =>
     mapPermissionToSummary(element),
   );
+  dto.description = role.description;
   dto.metadata = mapMetadataToResponse(role);
 
   return dto;

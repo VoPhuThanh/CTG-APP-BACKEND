@@ -1,5 +1,6 @@
 import { ErrorCode } from '@/cores/constants/error-code.constant';
 import {
+  ConflictException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -96,6 +97,13 @@ export class UsersService {
     if (!creator) {
       throw new UnauthorizedException('Current user not found');
     }
+    const existingStaffId = await this.userRepository.findOne({
+      where: { staffId: dto.staffId },
+    });
+
+    if (existingStaffId) {
+      throw new ConflictException('Staff ID already exists.');
+    }
     const existingUser = await this.userRepository.findOne({
       where: {
         username: dto.username,
@@ -119,9 +127,11 @@ export class UsersService {
     }
     const passwordHash = await bcrypt.hash(dto.password, 12);
     const user = this.userRepository.create({
+      staffId: dto.staffId,
       username: dto.username,
       passwordHash,
       role,
+      isActive: dto.isActive ?? true,
       createdBy: creator,
       updatedBy: creator,
     });
@@ -147,18 +157,19 @@ export class UsersService {
     const user = await this.findEntityById(id);
 
     if (dto.username) user.username = dto.username;
-    if (dto.roleId) {
-      const role = await this.roleReposistory.findOne({
-        where: {
-          id: dto.roleId,
-        },
+    if (dto.staffId && dto.staffId !== user.staffId) {
+      const existingStaffId = await this.userRepository.findOne({
+        where: { staffId: dto.staffId },
       });
-      if (!role) {
-        throw HandleError.badRequest({
-          code: 'DATA.DATA_DOESNT_EXIST',
-        });
+
+      if (existingStaffId) {
+        throw new ConflictException('Staff ID already exists.');
       }
-      user.role = role;
+
+      user.staffId = dto.staffId;
+    }
+    if (dto.isActive !== undefined) {
+      user.isActive = dto.isActive;
     }
     if (dto.password) user.passwordHash = await bcrypt.hash(dto.password, 12);
 

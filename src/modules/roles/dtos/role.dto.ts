@@ -10,6 +10,9 @@ export class RoleReponseDto {
   name!: string;
 
   @ApiProperty()
+  description!: string;
+
+  @ApiProperty()
   permission!: PermissionDto[];
 
   @ApiProperty()

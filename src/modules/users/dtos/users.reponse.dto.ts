@@ -7,6 +7,9 @@ export class UserResponseDto {
   id!: string;
 
   @ApiProperty()
+  staffId!: string;
+
+  @ApiProperty()
   username!: string;
 
   @ApiProperty()
@@ -14,4 +17,7 @@ export class UserResponseDto {
 
   @ApiProperty()
   metadata!: MetadataResponseDto;
+
+  @ApiProperty()
+  isActive!: boolean;
 }
