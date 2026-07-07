@@ -1,21 +1,11 @@
-import { ErrorCode } from '@/cores/constants/error-code.constant';
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-  UnauthorizedException,
-} from '@nestjs/common';
-import { mapUserToReponses, mapUsersToResponses } from './users.mapper';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { type Repository } from 'typeorm';
-import { User } from './entities/user.entity';
-import type { UserCreateDto } from './dtos/create-users.dto';
-import { Role } from '../roles/entities/role.entity';
 import * as bcrypt from 'bcrypt';
-import { HandleError } from '@/cores/serializers/errors/handle.errors';
-import type { UserResponseDto } from './dtos/users.reponse.dto';
-import type { UserUpdateDto } from './dtos/update-users.dto';
-import { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
+import { type Repository } from 'typeorm';
+
+import { USER_SORT_FIELDS } from '@/cores/constants/sorting.constant';
+import { AppError } from '@/cores/errors/app-error';
+import { AppErrorCode } from '@/cores/errors/app-error-code';
 import { PaginationQueryDto } from '@/cores/pagination/pagination-query.dto';
 import { PaginatedResponseDto } from '@/cores/pagination/pagination-response.dto';
 import {
@@ -24,6 +14,14 @@ import {
   getPaginationTake,
 } from '@/cores/pagination/pagination-utils';
 
+import { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
+import { Role } from '../roles/entities/role.entity';
+import type { UserCreateDto } from './dtos/create-users.dto';
+import type { UserUpdateDto } from './dtos/update-users.dto';
+import type { UserResponseDto } from './dtos/users.reponse.dto';
+import { User } from './entities/user.entity';
+import { mapUserToReponses, mapUsersToResponses } from './users.mapper';
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -31,31 +29,142 @@ export class UsersService {
     private readonly userRepository: Repository<User>,
 
     @InjectRepository(Role)
-    private readonly roleReposistory: Repository<Role>,
+    private readonly roleRepository: Repository<Role>,
   ) {}
+
   async findAll(
     query: PaginationQueryDto,
   ): Promise<PaginatedResponseDto<UserResponseDto>> {
-    const [users, totalItems] = await this.userRepository.findAndCount({
-      relations: {
-        role: {
-          permissions: true,
+    const sortBy = query.sortBy;
+    const sortOrder = query.sortOrder ?? 'ASC';
+    const search = query.search?.trim();
+
+    const queryBuilder = this.userRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.role', 'role')
+      .leftJoinAndSelect('role.permissions', 'permission')
+      .leftJoinAndSelect('user.createdBy', 'createdBy')
+      .leftJoinAndSelect('user.updatedBy', 'updatedBy');
+
+    if (search) {
+      queryBuilder.andWhere(
+        `(
+        user.username ILIKE :search
+        OR user.staffId ILIKE :search
+        OR role.name ILIKE :search
+        )`,
+        {
+          search: `%${search}%`,
         },
-        createdBy: true,
-        updatedBy: true,
-      },
-      order: {
-        createdAt: 'DESC',
-      },
-      skip: getPaginationSkip(query),
-      take: getPaginationTake(query),
-    });
+      );
+    }
+
+    if (sortBy === 'role') {
+      queryBuilder.orderBy('role.name', sortOrder);
+    } else if (sortBy && sortBy in USER_SORT_FIELDS) {
+      queryBuilder.orderBy(
+        `user.${USER_SORT_FIELDS[sortBy as keyof typeof USER_SORT_FIELDS]}`,
+        sortOrder,
+      );
+    } else {
+      queryBuilder.orderBy('user.createdAt', 'DESC');
+    }
+
+    queryBuilder
+      .addOrderBy('user.id', 'ASC')
+      .skip(getPaginationSkip(query))
+      .take(getPaginationTake(query));
+
+    const [users, totalItems] = await queryBuilder.getManyAndCount();
 
     return buildPaginatedResponse(
       mapUsersToResponses(users),
       totalItems,
       query,
     );
+  }
+  async findOne(id: string): Promise<UserResponseDto> {
+    const user = await this.findEntityById(id);
+
+    return mapUserToReponses(user);
+  }
+
+  async create(
+    dto: UserCreateDto,
+    currentUser: AuthenticatedUser,
+  ): Promise<UserResponseDto> {
+    const creator = await this.findCurrentUserOrThrow(currentUser);
+
+    await this.ensureStaffIdIsAvailable(dto.staffId);
+    await this.ensureUsernameIsAvailable(dto.username);
+
+    const role = await this.findRoleByIdOrThrow(dto.roleId);
+
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+
+    const user = this.userRepository.create({
+      staffId: dto.staffId,
+      username: dto.username,
+      passwordHash,
+      role,
+      isActive: dto.isActive ?? true,
+      createdBy: creator,
+      updatedBy: creator,
+    });
+
+    await this.userRepository.save(user);
+
+    return this.findOne(user.id);
+  }
+
+  async update(
+    id: string,
+    dto: UserUpdateDto,
+    currentUser: AuthenticatedUser,
+  ): Promise<UserResponseDto> {
+    const updater = await this.findCurrentUserOrThrow(currentUser);
+    const user = await this.findEntityById(id);
+
+    if (dto.username && dto.username !== user.username) {
+      await this.ensureUsernameIsAvailable(dto.username);
+      user.username = dto.username;
+    }
+
+    if (dto.staffId && dto.staffId !== user.staffId) {
+      await this.ensureStaffIdIsAvailable(dto.staffId);
+      user.staffId = dto.staffId;
+    }
+
+    if (dto.roleId && dto.roleId !== user.role?.id) {
+      user.role = await this.findRoleByIdOrThrow(dto.roleId);
+    }
+
+    if (dto.isActive !== undefined) {
+      user.isActive = dto.isActive;
+    }
+
+    if (dto.password) {
+      user.passwordHash = await bcrypt.hash(dto.password, 12);
+    }
+
+    user.updatedBy = updater;
+
+    await this.userRepository.save(user);
+
+    return this.findOne(user.id);
+  }
+
+  async delete(id: string, currentUser: AuthenticatedUser): Promise<void> {
+    const deleter = await this.findCurrentUserOrThrow(currentUser);
+    const user = await this.findEntityById(id);
+
+    await this.userRepository.manager.transaction(async (manager) => {
+      await manager.update(User, user.id, {
+        deletedBy: deleter,
+      });
+
+      await manager.softDelete(User, user.id);
+    });
   }
 
   private async findEntityById(id: string): Promise<User> {
@@ -69,134 +178,69 @@ export class UsersService {
         updatedBy: true,
       },
     });
+
     if (!user) {
-      throw new NotFoundException({
-        statusCode: 404,
-        code: ErrorCode.USER_NOT_FOUND,
-        message: 'User not found',
-      });
+      throw AppError.notFound(AppErrorCode.USER_NOT_FOUND);
     }
+
     return user;
   }
-  async findOne(id: string): Promise<UserResponseDto> {
-    const user = await this.findEntityById(id);
-    return mapUserToReponses(user);
-  }
-  async create(
-    dto: UserCreateDto,
+
+  private async findCurrentUserOrThrow(
     currentUser: AuthenticatedUser,
-  ): Promise<UserResponseDto> {
+  ): Promise<User> {
     if (!currentUser?.id) {
-      throw new UnauthorizedException('Authentication required');
+      throw AppError.unauthorized(AppErrorCode.AUTH_REQUIRED);
     }
-    const creator = await this.userRepository.findOne({
+
+    const user = await this.userRepository.findOne({
       where: {
         id: currentUser.id,
       },
     });
-    if (!creator) {
-      throw new UnauthorizedException('Current user not found');
+
+    if (!user) {
+      throw AppError.unauthorized(AppErrorCode.CURRENT_USER_NOT_FOUND);
     }
+
+    return user;
+  }
+
+  private async findRoleByIdOrThrow(roleId: string): Promise<Role> {
+    const role = await this.roleRepository.findOne({
+      where: {
+        id: roleId,
+      },
+    });
+
+    if (!role) {
+      throw AppError.notFound(AppErrorCode.ROLE_NOT_FOUND);
+    }
+
+    return role;
+  }
+
+  private async ensureStaffIdIsAvailable(staffId: string): Promise<void> {
     const existingStaffId = await this.userRepository.findOne({
-      where: { staffId: dto.staffId },
+      where: {
+        staffId,
+      },
     });
 
     if (existingStaffId) {
-      throw new ConflictException('Staff ID already exists.');
+      throw AppError.conflict(AppErrorCode.USER_STAFF_ID_ALREADY_EXISTS);
     }
+  }
+
+  private async ensureUsernameIsAvailable(username: string): Promise<void> {
     const existingUser = await this.userRepository.findOne({
       where: {
-        username: dto.username,
+        username,
       },
     });
+
     if (existingUser) {
-      throw HandleError.badRequest({
-        code: 'DATA.DATA_ALREADY_EXIST',
-      });
+      throw AppError.conflict(AppErrorCode.USER_USERNAME_ALREADY_EXISTS);
     }
-
-    const role = await this.roleReposistory.findOne({
-      where: {
-        id: dto.roleId,
-      },
-    });
-    if (!role) {
-      throw HandleError.badRequest({
-        code: 'DATA.DATA_DOESNT_EXIST',
-      });
-    }
-    const passwordHash = await bcrypt.hash(dto.password, 12);
-    const user = this.userRepository.create({
-      staffId: dto.staffId,
-      username: dto.username,
-      passwordHash,
-      role,
-      isActive: dto.isActive ?? true,
-      createdBy: creator,
-      updatedBy: creator,
-    });
-    await this.userRepository.save(user);
-    return this.findOne(user.id);
-  }
-  async update(
-    id: string,
-    dto: UserUpdateDto,
-    currentUser: AuthenticatedUser,
-  ): Promise<UserResponseDto> {
-    if (!currentUser?.id) {
-      throw new UnauthorizedException('Authentication required');
-    }
-    const updater = await this.userRepository.findOne({
-      where: {
-        id: currentUser.id,
-      },
-    });
-    if (!updater) {
-      throw new UnauthorizedException('Current user not found');
-    }
-    const user = await this.findEntityById(id);
-
-    if (dto.username) user.username = dto.username;
-    if (dto.staffId && dto.staffId !== user.staffId) {
-      const existingStaffId = await this.userRepository.findOne({
-        where: { staffId: dto.staffId },
-      });
-
-      if (existingStaffId) {
-        throw new ConflictException('Staff ID already exists.');
-      }
-
-      user.staffId = dto.staffId;
-    }
-    if (dto.isActive !== undefined) {
-      user.isActive = dto.isActive;
-    }
-    if (dto.password) user.passwordHash = await bcrypt.hash(dto.password, 12);
-
-    user.updatedBy = updater;
-
-    await this.userRepository.save(user);
-    return this.findOne(user.id);
-  }
-  async delete(id: string, currentUser: AuthenticatedUser): Promise<void> {
-    if (!currentUser?.id) {
-      throw new UnauthorizedException('Authentication required');
-    }
-    const deleter = await this.userRepository.findOne({
-      where: {
-        id: currentUser.id,
-      },
-    });
-    if (!deleter) {
-      throw new UnauthorizedException('Current user not found');
-    }
-    const user = await this.findEntityById(id);
-
-    await this.userRepository.manager.transaction(async (manager) => {
-      await manager.update(User, user.id, {
-        deletedBy: deleter,
-      });
-      await manager.softDelete(User, user.id);
-    });
   }
 }

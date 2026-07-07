@@ -1,11 +1,15 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import * as bcrypt from 'bcrypt';
+import { Repository } from 'typeorm';
+
+import { AppError } from '@/cores/errors/app-error';
+import { AppErrorCode } from '@/cores/errors/app-error-code';
+
 import { User } from '../users/entities/user.entity';
 import { JwtService } from '@nestjs/jwt';
 import { LoginDto } from './dtos/login.dto';
 import { LoginReponseDto } from './dtos/login-response.dto';
-import { Repository } from 'typeorm/repository/Repository.js';
-import * as bcrypt from 'bcrypt';
 import { mapToAuthenticatedUser } from './auth.mapper';
 
 @Injectable()
@@ -16,6 +20,7 @@ export class AuthService {
 
     private readonly jwtService: JwtService,
   ) {}
+
   async login(dto: LoginDto): Promise<LoginReponseDto> {
     const { username, password } = dto;
 
@@ -30,17 +35,17 @@ export class AuthService {
       .getOne();
 
     if (!user) {
-      throw new UnauthorizedException('Invalid Username or password');
+      throw AppError.unauthorized(AppErrorCode.INVALID_CREDENTIALS);
     }
 
     if (!user.isActive) {
-      throw new UnauthorizedException('User is deactivated');
+      throw AppError.unauthorized(AppErrorCode.USER_DEACTIVATED);
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid Username or password');
+      throw AppError.unauthorized(AppErrorCode.INVALID_CREDENTIALS);
     }
 
     const payload = {
