@@ -18,7 +18,7 @@ import { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interf
 import { Role } from '../roles/entities/role.entity';
 import type { UserCreateDto } from './dtos/create-users.dto';
 import type { UserUpdateDto } from './dtos/update-users.dto';
-import type { UserResponseDto } from './dtos/users.reponse.dto';
+import type { UserResponseDto } from './dtos/users.dto';
 import { User } from './entities/user.entity';
 import { mapUserToReponses, mapUsersToResponses } from './users.mapper';
 

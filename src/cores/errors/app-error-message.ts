@@ -16,4 +16,12 @@ export const AppErrorMessage: Record<AppErrorCode, string> = {
   [AppErrorCode.PERMISSION_NOT_FOUND]: 'Permission not found.',
   [AppErrorCode.PERMISSION_NAME_ALREADY_EXISTS]:
     'Permission name already exists.',
+
+  [AppErrorCode.FACILITY_NOT_FOUND]: 'Facility not found.',
+  [AppErrorCode.FACILITY_SLUG_ALREADY_EXISTS]: 'Facility slug already exists.',
+  [AppErrorCode.SERVICE_NOT_FOUND]: 'Service not found.',
+  [AppErrorCode.SERVICE_SLUG_ALREADY_EXISTS]: 'Service slug already exists.',
+  [AppErrorCode.SERVICE_VARIANT_NOT_FOUND]: 'Service variant not found.',
+  [AppErrorCode.SERVICE_VARIANT_SLUG_ALREADY_EXISTS]:
+    'Service variant slug already exists.',
 };
