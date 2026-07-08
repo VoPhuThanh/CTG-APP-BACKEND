@@ -22,6 +22,7 @@ import {
   mapFacilitiesToResponses,
   mapFacilityToResponse,
 } from './facilities.mapper';
+import { generateSlug } from '@/cores/utils/slug.util';
 
 @Injectable()
 export class FacilitiesService {
@@ -96,12 +97,14 @@ export class FacilitiesService {
   ): Promise<FacilityResponseDto> {
     const creator = await this.findCurrentUserOrThrow(currentUser);
 
-    await this.ensureFacilitySlugIsAvailable(dto.slug);
+    const slug = dto.slug ?? generateSlug(dto.nameEn);
+
+    await this.ensureFacilitySlugIsAvailable(slug);
 
     const facility = this.facilityRepository.create({
       nameEn: dto.nameEn,
       nameVi: dto.nameVi,
-      slug: dto.slug,
+      slug,
       descriptionEn: dto.descriptionEn,
       descriptionVi: dto.descriptionVi,
       coverImageUrl: dto.coverImageUrl,

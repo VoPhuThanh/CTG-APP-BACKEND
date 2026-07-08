@@ -20,13 +20,17 @@ export class FacilityCreateDto {
   @MaxLength(150)
   nameVi!: string;
 
-  @ApiProperty({ example: 'sauna-room' })
+  @ApiPropertyOptional({
+    example: 'sauna-room',
+    description: 'If omitted, slug is generated from nameEn.',
+  })
+  @IsOptional()
   @IsString()
   @MaxLength(180)
   @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
     message: 'slug must be lowercase words separated by hyphens',
   })
-  slug!: string;
+  slug?: string;
 
   @ApiPropertyOptional({ example: 'Relaxing sauna facility.' })
   @IsOptional()

@@ -41,3 +41,13 @@ export const SERVICE_VARIANT_SORT_FIELDS = {
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
 };
+export const CLUB_SORT_FIELDS = {
+  nameEn: 'nameEn',
+  nameVi: 'nameVi',
+  slug: 'slug',
+  status: 'status',
+  isFeatured: 'isFeatured',
+  displayOrder: 'displayOrder',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+};

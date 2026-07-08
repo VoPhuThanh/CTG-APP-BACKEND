@@ -23,13 +23,17 @@ export class ServiceVariantCreateDto {
   @MaxLength(150)
   nameVi!: string;
 
-  @ApiProperty({ example: 'zumba' })
+  @ApiPropertyOptional({
+    example: 'zumba',
+    description: 'If omitted, slug is generated from nameEn.',
+  })
+  @IsOptional()
   @IsString()
   @MaxLength(180)
   @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
     message: 'slug must be lowercase words separated by hyphens',
   })
-  slug!: string;
+  slug?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

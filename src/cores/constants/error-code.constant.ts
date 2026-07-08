@@ -1,5 +1,0 @@
-export enum ErrorCode {
-  USER_NOT_FOUND = 'USER_NOT_FOUND',
-
-  USER_ALREADY_EXISTS = 'USER_ALREADY_EXISTS',
-}

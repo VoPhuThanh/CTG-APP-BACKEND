@@ -31,6 +31,7 @@ import {
   mapServiceVariantToResponse,
 } from './services.mapper';
 import { ServiceSkillLevel, ServiceStatus } from './enums/service.enum';
+import { generateSlug } from '@/cores/utils/slug.util';
 
 @Injectable()
 export class ServicesService {
@@ -115,12 +116,14 @@ export class ServicesService {
   ): Promise<ServiceResponseDto> {
     const creator = await this.findCurrentUserOrThrow(currentUser);
 
-    await this.ensureServiceSlugIsAvailable(dto.slug);
+    const slug = dto.slug ?? generateSlug(dto.nameEn);
+
+    await this.ensureServiceSlugIsAvailable(slug);
 
     const service = this.serviceRepository.create({
       nameEn: dto.nameEn,
       nameVi: dto.nameVi,
-      slug: dto.slug,
+      slug,
       shortDescriptionEn: dto.shortDescriptionEn,
       shortDescriptionVi: dto.shortDescriptionVi,
       descriptionEn: dto.descriptionEn,
@@ -274,13 +277,15 @@ export class ServicesService {
     const creator = await this.findCurrentUserOrThrow(currentUser);
     const service = await this.ensureServiceExists(serviceId);
 
-    await this.ensureServiceVariantSlugIsAvailable(serviceId, dto.slug);
+    const slug = dto.slug ?? generateSlug(dto.nameEn);
+
+    await this.ensureServiceVariantSlugIsAvailable(serviceId, slug);
 
     const variant = this.serviceVariantRepository.create({
       service,
       nameEn: dto.nameEn,
       nameVi: dto.nameVi,
-      slug: dto.slug,
+      slug,
       shortDescriptionEn: dto.shortDescriptionEn,
       shortDescriptionVi: dto.shortDescriptionVi,
       descriptionEn: dto.descriptionEn,
