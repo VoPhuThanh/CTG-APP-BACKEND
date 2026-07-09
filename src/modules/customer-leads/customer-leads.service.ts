@@ -171,22 +171,24 @@ export class CustomerLeadsService {
     if (dto.weightKg !== undefined) lead.weightKg = dto.weightKg;
 
     if (dto.interestedServiceId !== undefined) {
-      lead.interestedService = await this.findServiceByIdOrThrow(
-        dto.interestedServiceId,
-      );
+      lead.interestedService = dto.interestedServiceId
+        ? await this.findServiceByIdOrThrow(dto.interestedServiceId)
+        : undefined;
     }
 
     if (dto.preferredClubId !== undefined) {
-      lead.preferredClub = await this.findClubByIdOrThrow(dto.preferredClubId);
+      lead.preferredClub = dto.preferredClubId
+        ? await this.findClubByIdOrThrow(dto.preferredClubId)
+        : undefined;
     }
 
     if (dto.interestedMembershipLevelId !== undefined) {
-      lead.interestedMembershipLevel =
-        await this.findMembershipLevelByIdOrThrow(
-          dto.interestedMembershipLevelId,
-        );
+      lead.interestedMembershipLevel = dto.interestedMembershipLevelId
+        ? await this.findMembershipLevelByIdOrThrow(
+            dto.interestedMembershipLevelId,
+          )
+        : undefined;
     }
-
     if (dto.status !== undefined) lead.status = dto.status;
     if (dto.internalNote !== undefined) lead.internalNote = dto.internalNote;
 

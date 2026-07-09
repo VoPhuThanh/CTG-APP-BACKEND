@@ -38,7 +38,7 @@ export class CustomerLeadUpdateDto {
   @ApiPropertyOptional({ format: 'uuid', nullable: true })
   @IsOptional()
   @IsUUID()
-  preferredClubId?: string;
+  preferredClubId?: string | null;
 
   @ApiPropertyOptional({ example: 'Weekday evening' })
   @IsOptional()
@@ -73,12 +73,12 @@ export class CustomerLeadUpdateDto {
   @ApiPropertyOptional({ format: 'uuid', nullable: true })
   @IsOptional()
   @IsUUID()
-  interestedServiceId?: string;
+  interestedServiceId?: string | null;
 
   @ApiPropertyOptional({ format: 'uuid', nullable: true })
   @IsOptional()
   @IsUUID()
-  interestedMembershipLevelId?: string;
+  interestedMembershipLevelId?: string | null;
 
   @ApiPropertyOptional({ enum: CustomerLeadStatus })
   @IsOptional()
