@@ -263,7 +263,7 @@ export class ServicesService {
     const [variants, totalItems] = await queryBuilder.getManyAndCount();
 
     return buildPaginatedResponse(
-      variants.map(mapServiceVariantToResponse),
+      variants.map((variant) => mapServiceVariantToResponse(variant)),
       totalItems,
       query,
     );

@@ -1,16 +1,17 @@
 import { mapMetadataToResponse } from '@/cores/mappers/metadata.mapper';
-import { ServiceResponseDto } from './dtos/service.dto';
 import { ServiceVariantResponseDto } from './dtos/service-variant.dto';
+import { ServiceResponseDto } from './dtos/service.dto';
 import { ServiceVariant } from './entities/service-variant.entity';
 import { Service } from './entities/service.entity';
 
 export function mapServiceVariantToResponse(
   variant: ServiceVariant,
+  fallbackServiceId?: string,
 ): ServiceVariantResponseDto {
   const dto = new ServiceVariantResponseDto();
 
   dto.id = variant.id;
-  dto.serviceId = variant.service.id;
+  dto.serviceId = variant.service?.id ?? fallbackServiceId ?? '';
   dto.nameEn = variant.nameEn;
   dto.nameVi = variant.nameVi;
   dto.slug = variant.slug;
@@ -33,8 +34,11 @@ export function mapServiceVariantToResponse(
 
 export function mapServiceVariantsToResponses(
   variants: ServiceVariant[],
+  fallbackServiceId?: string,
 ): ServiceVariantResponseDto[] {
-  return variants.map(mapServiceVariantToResponse);
+  return variants.map((variant) =>
+    mapServiceVariantToResponse(variant, fallbackServiceId),
+  );
 }
 
 export function mapServiceToResponse(service: Service): ServiceResponseDto {
@@ -52,7 +56,10 @@ export function mapServiceToResponse(service: Service): ServiceResponseDto {
   dto.status = service.status;
   dto.displayOrder = service.displayOrder;
   dto.isFeatured = service.isFeatured;
-  dto.variants = mapServiceVariantsToResponses(service.variants ?? []);
+  dto.variants = mapServiceVariantsToResponses(
+    service.variants ?? [],
+    service.id,
+  );
   dto.metadata = mapMetadataToResponse(service);
 
   return dto;
