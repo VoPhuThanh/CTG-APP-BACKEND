@@ -5,10 +5,16 @@ import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const allowedOrigins = [process.env.FRONTEND_URL, process.env.CMS_URL].filter(
+    (origin): origin is string => Boolean(origin),
+  );
+
   app.enableCors({
-    origin: ['http://localhost:3001'],
-    credentials: true,
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
+
   const config = new DocumentBuilder()
     .setTitle('CTG BACKEND API')
     .setDescription('API DOCUMENTATION')

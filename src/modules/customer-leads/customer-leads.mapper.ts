@@ -75,6 +75,7 @@ export function mapCustomerLeadToResponse(
   dto.internalNote = lead.internalNote ?? null;
   dto.consentAccepted = lead.consentAccepted;
   dto.consentAcceptedAt = lead.consentAcceptedAt ?? null;
+  dto.promotionConsentAccepted = lead.promotionConsentAccepted;
   dto.metadata = mapMetadataToResponse(lead);
 
   return dto;

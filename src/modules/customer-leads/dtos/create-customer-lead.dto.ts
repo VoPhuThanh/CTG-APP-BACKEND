@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   Equals,
+  IsBoolean,
   IsEnum,
   IsInt,
   IsNumberString,
@@ -99,4 +100,13 @@ export class CustomerLeadCreateDto {
   })
   @Equals(true)
   consentAccepted!: true;
+
+  @ApiPropertyOptional({
+    example: false,
+    description: 'Whether the customer agrees to receive promotional content.',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  promotionConsentAccepted?: boolean;
 }

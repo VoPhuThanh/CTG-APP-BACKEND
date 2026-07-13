@@ -109,6 +109,9 @@ export class CustomerLeadResponseDto {
 
   @ApiProperty()
   metadata!: MetadataResponseDto;
+
+  @ApiProperty()
+  promotionConsentAccepted!: boolean;
 }
 
 export class PublicCustomerLeadResponseDto {

@@ -120,6 +120,13 @@ export class CustomerLead extends BaseEntityCore {
   @Column({ name: 'consent_accepted_at', type: 'timestamptz', nullable: true })
   consentAcceptedAt?: Date;
 
+  @Column({
+    name: 'promotion_consent_accepted',
+    type: 'boolean',
+    default: false,
+  })
+  promotionConsentAccepted!: boolean;
+
   @ManyToOne(() => User, {
     nullable: true,
   })

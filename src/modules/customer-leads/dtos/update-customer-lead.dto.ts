@@ -96,4 +96,12 @@ export class CustomerLeadUpdateDto {
   @IsOptional()
   @IsBoolean()
   consentAccepted?: boolean;
+
+  @ApiPropertyOptional({
+    example: false,
+    description: 'Whether the customer agrees to receive promotional content.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  promotionConsentAccepted?: boolean;
 }

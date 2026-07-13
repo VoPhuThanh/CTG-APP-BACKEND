@@ -196,6 +196,9 @@ export class CustomerLeadsService {
       lead.consentAccepted = dto.consentAccepted;
       lead.consentAcceptedAt = dto.consentAccepted ? new Date() : undefined;
     }
+    if (dto.promotionConsentAccepted !== undefined) {
+      lead.promotionConsentAccepted = dto.promotionConsentAccepted;
+    }
 
     const bmiResult = this.calculateBmi(lead.heightCm, lead.weightKg);
     lead.bmiValue = bmiResult.bmiValue;
@@ -262,6 +265,7 @@ export class CustomerLeadsService {
       status: CustomerLeadStatus.NEW,
       consentAccepted: dto.consentAccepted,
       consentAcceptedAt: new Date(),
+      promotionConsentAccepted: dto.promotionConsentAccepted ?? false,
       updatedBy: updater,
     });
 
