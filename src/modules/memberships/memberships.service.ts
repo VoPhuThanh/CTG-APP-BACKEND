@@ -16,7 +16,11 @@ import { generateSlug } from '@/cores/utils/slug.util';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
-
+import type {
+  PublicMembershipBenefitResponseDto,
+  PublicMembershipLevelResponseDto,
+  PublicMembershipPlanResponseDto,
+} from './dtos/public-membership.dto';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
 import { User } from '../users/entities/user.entity';
 import type { MembershipBenefitCreateDto } from './dtos/create-membership-benefit.dto';
@@ -33,12 +37,18 @@ import { MembershipLevel } from './entities/membership-level.entity';
 import { MembershipPlan } from './entities/membership-plan.entity';
 import { MembershipStatus } from './enums/membership.enum';
 import {
-  mapMembershipBenefitToResponse,
+  mapMembershipBenefitsToPublicResponses,
   mapMembershipBenefitsToResponses,
-  mapMembershipLevelToResponse,
+  mapMembershipBenefitToPublicResponse,
+  mapMembershipBenefitToResponse,
+  mapMembershipLevelsToPublicResponses,
   mapMembershipLevelsToResponses,
-  mapMembershipPlanToResponse,
+  mapMembershipLevelToPublicResponse,
+  mapMembershipLevelToResponse,
+  mapMembershipPlansToPublicResponses,
   mapMembershipPlansToResponses,
+  mapMembershipPlanToPublicResponse,
+  mapMembershipPlanToResponse,
 } from './memberships.mapper';
 
 @Injectable()
@@ -666,5 +676,159 @@ export class MembershipsService {
     }
 
     return benefits;
+  }
+  async findPublicLevels(): Promise<PublicMembershipLevelResponseDto[]> {
+    const levels = await this.levelRepository.find({
+      where: {
+        status: MembershipStatus.PUBLISHED,
+      },
+      order: {
+        displayOrder: 'ASC',
+        createdAt: 'DESC',
+        id: 'ASC',
+      },
+    });
+
+    return mapMembershipLevelsToPublicResponses(levels);
+  }
+  async findPublicFeaturedLevels(): Promise<
+    PublicMembershipLevelResponseDto[]
+  > {
+    const levels = await this.levelRepository.find({
+      where: {
+        status: MembershipStatus.PUBLISHED,
+        isFeatured: true,
+      },
+      order: {
+        displayOrder: 'ASC',
+        createdAt: 'DESC',
+        id: 'ASC',
+      },
+      take: 3,
+    });
+
+    return mapMembershipLevelsToPublicResponses(levels);
+  }
+  async findPublicLevelBySlug(
+    slug: string,
+  ): Promise<PublicMembershipLevelResponseDto> {
+    const level = await this.levelRepository
+      .createQueryBuilder('level')
+      .leftJoinAndSelect('level.plans', 'plan', 'plan.status = :planStatus', {
+        planStatus: MembershipStatus.PUBLISHED,
+      })
+      .leftJoinAndSelect(
+        'level.benefits',
+        'benefit',
+        'benefit.isActive = :benefitIsActive',
+        {
+          benefitIsActive: true,
+        },
+      )
+      .where('level.slug = :slug', { slug })
+      .andWhere('level.status = :levelStatus', {
+        levelStatus: MembershipStatus.PUBLISHED,
+      })
+      .orderBy('plan.displayOrder', 'ASC')
+      .addOrderBy('plan.durationMonths', 'ASC')
+      .addOrderBy('plan.id', 'ASC')
+      .addOrderBy('benefit.displayOrder', 'ASC')
+      .addOrderBy('benefit.nameEn', 'ASC')
+      .getOne();
+
+    if (!level) {
+      throw AppError.notFound(AppErrorCode.MEMBERSHIP_LEVEL_NOT_FOUND);
+    }
+
+    return mapMembershipLevelToPublicResponse(level);
+  }
+  async findPublicBenefits(): Promise<PublicMembershipBenefitResponseDto[]> {
+    const benefits = await this.benefitRepository.find({
+      where: {
+        isActive: true,
+      },
+      order: {
+        displayOrder: 'ASC',
+        createdAt: 'DESC',
+        id: 'ASC',
+      },
+    });
+
+    return mapMembershipBenefitsToPublicResponses(benefits);
+  }
+
+  async findPublicBenefit(
+    benefitId: string,
+  ): Promise<PublicMembershipBenefitResponseDto> {
+    const benefit = await this.benefitRepository.findOne({
+      where: {
+        id: benefitId,
+        isActive: true,
+      },
+    });
+
+    if (!benefit) {
+      throw AppError.notFound(AppErrorCode.MEMBERSHIP_BENEFIT_NOT_FOUND);
+    }
+
+    return mapMembershipBenefitToPublicResponse(benefit);
+  }
+  async findPublicPlansByLevelId(
+    levelId: string,
+  ): Promise<PublicMembershipPlanResponseDto[]> {
+    const level = await this.levelRepository.findOne({
+      where: {
+        id: levelId,
+        status: MembershipStatus.PUBLISHED,
+      },
+    });
+
+    if (!level) {
+      throw AppError.notFound(AppErrorCode.MEMBERSHIP_LEVEL_NOT_FOUND);
+    }
+
+    const plans = await this.planRepository.find({
+      where: {
+        level: {
+          id: levelId,
+        },
+        status: MembershipStatus.PUBLISHED,
+      },
+      relations: {
+        level: true,
+      },
+      order: {
+        displayOrder: 'ASC',
+        durationMonths: 'ASC',
+        createdAt: 'DESC',
+        id: 'ASC',
+      },
+    });
+
+    return mapMembershipPlansToPublicResponses(plans);
+  }
+  async findPublicPlan(
+    levelId: string,
+    planId: string,
+  ): Promise<PublicMembershipPlanResponseDto> {
+    const plan = await this.planRepository.findOne({
+      where: {
+        id: planId,
+        status: MembershipStatus.PUBLISHED,
+        level: {
+          id: levelId,
+          status: MembershipStatus.PUBLISHED,
+        },
+      },
+      relations: {
+        level: true,
+      },
+    });
+
+    if (!plan) {
+      throw AppError.notFound(AppErrorCode.MEMBERSHIP_PLAN_NOT_FOUND);
+    }
+
+    return mapMembershipPlanToPublicResponse(plan);
   }
 }

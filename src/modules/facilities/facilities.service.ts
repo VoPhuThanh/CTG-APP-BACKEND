@@ -19,10 +19,13 @@ import type { FacilityResponseDto } from './dtos/facility.dto';
 import type { FacilityUpdateDto } from './dtos/update-facility.dto';
 import { Facility } from './entities/facility.entity';
 import {
+  mapFacilitiesToPublicResponses,
   mapFacilitiesToResponses,
+  mapFacilityToPublicResponse,
   mapFacilityToResponse,
 } from './facilities.mapper';
 import { generateSlug } from '@/cores/utils/slug.util';
+import { PublicFacilityResponseDto } from './dtos/public-facility.dto';
 
 @Injectable()
 export class FacilitiesService {
@@ -228,5 +231,36 @@ export class FacilitiesService {
     if (existingFacility) {
       throw AppError.conflict(AppErrorCode.FACILITY_SLUG_ALREADY_EXISTS);
     }
+  }
+  async findPublicFacilities(): Promise<PublicFacilityResponseDto[]> {
+    const facilities = await this.facilityRepository.find({
+      where: {
+        isActive: true,
+      },
+      order: {
+        displayOrder: 'ASC',
+        createdAt: 'DESC',
+        id: 'ASC',
+      },
+    });
+
+    return mapFacilitiesToPublicResponses(facilities);
+  }
+
+  async findPublicFacilityBySlug(
+    slug: string,
+  ): Promise<PublicFacilityResponseDto> {
+    const facility = await this.facilityRepository.findOne({
+      where: {
+        slug,
+        isActive: true,
+      },
+    });
+
+    if (!facility) {
+      throw AppError.notFound(AppErrorCode.FACILITY_NOT_FOUND);
+    }
+
+    return mapFacilityToPublicResponse(facility);
   }
 }

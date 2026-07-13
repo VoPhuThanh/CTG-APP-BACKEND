@@ -5,6 +5,11 @@ import { MembershipPlanResponseDto } from './dtos/membership-plan.dto';
 import { MembershipBenefit } from './entities/membership-benefit.entity';
 import { MembershipLevel } from './entities/membership-level.entity';
 import { MembershipPlan } from './entities/membership-plan.entity';
+import {
+  PublicMembershipBenefitResponseDto,
+  PublicMembershipPlanResponseDto,
+  PublicMembershipLevelResponseDto,
+} from './dtos/public-membership.dto';
 
 export function mapMembershipBenefitToResponse(
   benefit: MembershipBenefit,
@@ -87,4 +92,77 @@ export function mapMembershipLevelsToResponses(
   levels: MembershipLevel[],
 ): MembershipLevelResponseDto[] {
   return levels.map(mapMembershipLevelToResponse);
+}
+export function mapMembershipBenefitToPublicResponse(
+  benefit: MembershipBenefit,
+): PublicMembershipBenefitResponseDto {
+  const dto = new PublicMembershipBenefitResponseDto();
+
+  dto.id = benefit.id;
+  dto.nameEn = benefit.nameEn;
+  dto.nameVi = benefit.nameVi;
+  dto.descriptionEn = benefit.descriptionEn ?? null;
+  dto.descriptionVi = benefit.descriptionVi ?? null;
+  dto.displayOrder = benefit.displayOrder;
+
+  return dto;
+}
+
+export function mapMembershipBenefitsToPublicResponses(
+  benefits: MembershipBenefit[],
+): PublicMembershipBenefitResponseDto[] {
+  return benefits.map(mapMembershipBenefitToPublicResponse);
+}
+
+export function mapMembershipPlanToPublicResponse(
+  plan: MembershipPlan,
+): PublicMembershipPlanResponseDto {
+  const dto = new PublicMembershipPlanResponseDto();
+
+  dto.id = plan.id;
+  dto.levelId = plan.level.id;
+  dto.durationMonths = plan.durationMonths;
+  dto.totalPrice = plan.totalPrice;
+  dto.currency = plan.currency;
+  dto.labelEn = plan.labelEn ?? null;
+  dto.labelVi = plan.labelVi ?? null;
+  dto.isFeatured = plan.isFeatured;
+  dto.displayOrder = plan.displayOrder;
+
+  return dto;
+}
+
+export function mapMembershipPlansToPublicResponses(
+  plans: MembershipPlan[],
+): PublicMembershipPlanResponseDto[] {
+  return plans.map(mapMembershipPlanToPublicResponse);
+}
+
+export function mapMembershipLevelToPublicResponse(
+  level: MembershipLevel,
+): PublicMembershipLevelResponseDto {
+  const dto = new PublicMembershipLevelResponseDto();
+
+  dto.id = level.id;
+  dto.nameEn = level.nameEn;
+  dto.nameVi = level.nameVi;
+  dto.slug = level.slug;
+  dto.shortDescriptionEn = level.shortDescriptionEn ?? null;
+  dto.shortDescriptionVi = level.shortDescriptionVi ?? null;
+  dto.descriptionEn = level.descriptionEn ?? null;
+  dto.descriptionVi = level.descriptionVi ?? null;
+  dto.imageUrl = level.imageUrl ?? null;
+  dto.isFeatured = level.isFeatured;
+  dto.displayOrder = level.displayOrder;
+
+  dto.plans = mapMembershipPlansToPublicResponses(level.plans ?? []);
+  dto.benefits = mapMembershipBenefitsToPublicResponses(level.benefits ?? []);
+
+  return dto;
+}
+
+export function mapMembershipLevelsToPublicResponses(
+  levels: MembershipLevel[],
+): PublicMembershipLevelResponseDto[] {
+  return levels.map(mapMembershipLevelToPublicResponse);
 }

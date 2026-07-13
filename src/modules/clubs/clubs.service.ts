@@ -21,8 +21,15 @@ import type { ClubResponseDto } from './dtos/club.dto';
 import type { ClubCreateDto } from './dtos/create-club.dto';
 import type { ClubUpdateDto } from './dtos/update-club.dto';
 import { Club } from './entities/club.entity';
-import { mapClubToResponse, mapClubsToResponses } from './clubs.mapper';
+import {
+  mapClubToPublicResponse,
+  mapClubToResponse,
+  mapClubsToPublicResponses,
+  mapClubsToResponses,
+} from './clubs.mapper';
 import { generateSlug } from '@/cores/utils/slug.util';
+import { ServiceStatus } from '../services/enums/service.enum';
+import { PublicClubResponseDto } from './dtos/public-club.dto';
 
 @Injectable()
 export class ClubsService {
@@ -333,5 +340,72 @@ export class ClubsService {
     }
 
     return services;
+  }
+  async findPublicClubs(): Promise<PublicClubResponseDto[]> {
+    const clubs = await this.clubRepository.find({
+      where: {
+        status: ClubStatus.PUBLISHED,
+      },
+      order: {
+        displayOrder: 'ASC',
+        createdAt: 'DESC',
+        id: 'ASC',
+      },
+    });
+
+    return mapClubsToPublicResponses(clubs);
+  }
+
+  async findPublicFeaturedClubs(): Promise<PublicClubResponseDto[]> {
+    const clubs = await this.clubRepository.find({
+      where: {
+        status: ClubStatus.PUBLISHED,
+        isFeatured: true,
+      },
+      order: {
+        displayOrder: 'ASC',
+        createdAt: 'DESC',
+        id: 'ASC',
+      },
+      take: 3,
+    });
+
+    return mapClubsToPublicResponses(clubs);
+  }
+
+  async findPublicClubBySlug(slug: string): Promise<PublicClubResponseDto> {
+    const club = await this.clubRepository
+      .createQueryBuilder('club')
+      .leftJoinAndSelect(
+        'club.facilities',
+        'facility',
+        'facility.isActive = :facilityIsActive',
+        {
+          facilityIsActive: true,
+        },
+      )
+      .leftJoinAndSelect(
+        'club.services',
+        'service',
+        'service.status = :serviceStatus',
+        {
+          serviceStatus: ServiceStatus.PUBLISHED,
+        },
+      )
+      .where('club.slug = :slug', { slug })
+      .andWhere('club.status = :clubStatus', {
+        clubStatus: ClubStatus.PUBLISHED,
+      })
+      .orderBy('facility.displayOrder', 'ASC')
+      .addOrderBy('facility.nameEn', 'ASC')
+      .addOrderBy('service.displayOrder', 'ASC')
+      .addOrderBy('service.nameEn', 'ASC')
+      .getOne();
+
+    if (!club) {
+      throw AppError.notFound(AppErrorCode.CLUB_NOT_FOUND);
+    }
+
+    return mapClubToPublicResponse(club);
   }
 }

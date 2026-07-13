@@ -33,6 +33,50 @@ import { MembershipsService } from './memberships.service';
 @Controller('memberships')
 export class MembershipsController {
   constructor(private readonly membershipsService: MembershipsService) {}
+  @ApiOperation({ summary: 'Find public featured membership levels' })
+  @Get('public/levels/featured')
+  findPublicFeaturedLevels() {
+    return this.membershipsService.findPublicFeaturedLevels();
+  }
+
+  @ApiOperation({ summary: 'Find public membership plan by id' })
+  @Get('public/levels/:levelId/plans/:planId')
+  findPublicPlan(
+    @Param('levelId') levelId: string,
+    @Param('planId') planId: string,
+  ) {
+    return this.membershipsService.findPublicPlan(levelId, planId);
+  }
+
+  @ApiOperation({ summary: 'Find public plans under a membership level' })
+  @Get('public/levels/:levelId/plans')
+  findPublicPlansByLevelId(@Param('levelId') levelId: string) {
+    return this.membershipsService.findPublicPlansByLevelId(levelId);
+  }
+
+  @ApiOperation({ summary: 'Find public published membership levels' })
+  @Get('public/levels')
+  findPublicLevels() {
+    return this.membershipsService.findPublicLevels();
+  }
+
+  @ApiOperation({ summary: 'Find public membership level by slug' })
+  @Get('public/levels/:slug')
+  findPublicLevelBySlug(@Param('slug') slug: string) {
+    return this.membershipsService.findPublicLevelBySlug(slug);
+  }
+
+  @ApiOperation({ summary: 'Find public active membership benefits' })
+  @Get('public/benefits')
+  findPublicBenefits() {
+    return this.membershipsService.findPublicBenefits();
+  }
+
+  @ApiOperation({ summary: 'Find public membership benefit by id' })
+  @Get('public/benefits/:benefitId')
+  findPublicBenefit(@Param('benefitId') benefitId: string) {
+    return this.membershipsService.findPublicBenefit(benefitId);
+  }
 
   @ApiOperation({ summary: 'Find all membership levels' })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })

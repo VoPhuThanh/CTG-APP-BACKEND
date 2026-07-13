@@ -54,7 +54,7 @@ export class SiteSettingsService {
     }
 
     queryBuilder
-      .orderBy('setting."group"', 'ASC')
+      .orderBy('setting.group', 'ASC')
       .addOrderBy('setting.displayOrder', 'ASC')
       .addOrderBy('setting.key', 'ASC');
 
@@ -126,7 +126,7 @@ export class SiteSettingsService {
         sortOrder,
       );
     } else {
-      queryBuilder.orderBy('setting."group"', 'ASC');
+      queryBuilder.orderBy('setting.group', 'ASC');
     }
 
     queryBuilder

@@ -32,6 +32,24 @@ import { ServicesService } from './services.service';
 export class ServicesController {
   constructor(private readonly servicesService: ServicesService) {}
 
+  @ApiOperation({ summary: 'Find public featured services' })
+  @Get('public/featured')
+  findPublicFeaturedServices() {
+    return this.servicesService.findPublicFeaturedServices();
+  }
+
+  @ApiOperation({ summary: 'Find public published services' })
+  @Get('public')
+  findPublicServices() {
+    return this.servicesService.findPublicServices();
+  }
+
+  @ApiOperation({ summary: 'Find public service by slug' })
+  @Get('public/:slug')
+  findPublicServiceBySlug(@Param('slug') slug: string) {
+    return this.servicesService.findPublicServiceBySlug(slug);
+  }
+
   @ApiOperation({ summary: 'Find all services' })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })

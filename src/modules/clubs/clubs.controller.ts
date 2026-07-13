@@ -29,6 +29,23 @@ import { ClubUpdateDto } from './dtos/update-club.dto';
 @Controller('clubs')
 export class ClubsController {
   constructor(private readonly clubsService: ClubsService) {}
+  @ApiOperation({ summary: 'Find public featured clubs' })
+  @Get('public/featured')
+  findPublicFeaturedClubs() {
+    return this.clubsService.findPublicFeaturedClubs();
+  }
+
+  @ApiOperation({ summary: 'Find public published clubs' })
+  @Get('public')
+  findPublicClubs() {
+    return this.clubsService.findPublicClubs();
+  }
+
+  @ApiOperation({ summary: 'Find public club by slug' })
+  @Get('public/:slug')
+  findPublicClubBySlug(@Param('slug') slug: string) {
+    return this.clubsService.findPublicClubBySlug(slug);
+  }
 
   @ApiOperation({ summary: 'Find all clubs' })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })

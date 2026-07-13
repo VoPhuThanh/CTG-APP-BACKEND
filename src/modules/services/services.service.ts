@@ -29,9 +29,12 @@ import {
   mapServiceToResponse,
   mapServicesToResponses,
   mapServiceVariantToResponse,
+  mapServicesToPublicResponses,
+  mapServiceToPublicResponse,
 } from './services.mapper';
 import { ServiceSkillLevel, ServiceStatus } from './enums/service.enum';
 import { generateSlug } from '@/cores/utils/slug.util';
+import { PublicServiceResponseDto } from './dtos/public-service.dto';
 
 @Injectable()
 export class ServicesService {
@@ -496,5 +499,65 @@ export class ServicesService {
     }
 
     return service;
+  }
+  async findPublicServices(): Promise<PublicServiceResponseDto[]> {
+    const services = await this.serviceRepository.find({
+      where: {
+        status: ServiceStatus.PUBLISHED,
+      },
+      order: {
+        displayOrder: 'ASC',
+        createdAt: 'DESC',
+        id: 'ASC',
+      },
+    });
+
+    return mapServicesToPublicResponses(services);
+  }
+
+  async findPublicFeaturedServices(): Promise<PublicServiceResponseDto[]> {
+    const services = await this.serviceRepository.find({
+      where: {
+        status: ServiceStatus.PUBLISHED,
+        isFeatured: true,
+      },
+      order: {
+        displayOrder: 'ASC',
+        createdAt: 'DESC',
+        id: 'ASC',
+      },
+      take: 3,
+    });
+
+    return mapServicesToPublicResponses(services);
+  }
+
+  async findPublicServiceBySlug(
+    slug: string,
+  ): Promise<PublicServiceResponseDto> {
+    const service = await this.serviceRepository
+      .createQueryBuilder('service')
+      .leftJoinAndSelect(
+        'service.variants',
+        'variant',
+        'variant.status = :variantStatus',
+        {
+          variantStatus: ServiceStatus.PUBLISHED,
+        },
+      )
+      .where('service.slug = :slug', { slug })
+      .andWhere('service.status = :serviceStatus', {
+        serviceStatus: ServiceStatus.PUBLISHED,
+      })
+      .orderBy('variant.displayOrder', 'ASC')
+      .addOrderBy('variant.createdAt', 'DESC')
+      .addOrderBy('variant.id', 'ASC')
+      .getOne();
+
+    if (!service) {
+      throw AppError.notFound(AppErrorCode.SERVICE_NOT_FOUND);
+    }
+
+    return mapServiceToPublicResponse(service);
   }
 }

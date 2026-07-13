@@ -30,6 +30,18 @@ import { FacilitiesService } from './facilities.service';
 export class FacilitiesController {
   constructor(private readonly facilitiesService: FacilitiesService) {}
 
+  @ApiOperation({ summary: 'Find public active facilities' })
+  @Get('public')
+  findPublicFacilities() {
+    return this.facilitiesService.findPublicFacilities();
+  }
+
+  @ApiOperation({ summary: 'Find public facility by slug' })
+  @Get('public/:slug')
+  findPublicFacilityBySlug(@Param('slug') slug: string) {
+    return this.facilitiesService.findPublicFacilityBySlug(slug);
+  }
+
   @ApiOperation({ summary: 'Find all facilities' })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })

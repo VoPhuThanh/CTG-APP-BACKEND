@@ -123,7 +123,7 @@ export const MEDIA_ASSET_SORT_FIELDS = {
 
 export const SITE_SETTING_SORT_FIELDS = {
   key: 'key',
-  group: '"group"',
+  group: 'group',
   labelEn: 'labelEn',
   valueType: 'valueType',
   isPublic: 'isPublic',
@@ -132,7 +132,6 @@ export const SITE_SETTING_SORT_FIELDS = {
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
 };
-
 export const POST_CATEGORY_SORT_FIELDS = {
   nameEn: 'nameEn',
   nameVi: 'nameVi',
