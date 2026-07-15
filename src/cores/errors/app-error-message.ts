@@ -24,6 +24,8 @@ export const AppErrorMessage: Record<AppErrorCode, string> = {
   [AppErrorCode.SERVICE_VARIANT_NOT_FOUND]: 'Service variant not found.',
   [AppErrorCode.SERVICE_VARIANT_SLUG_ALREADY_EXISTS]:
     'Service variant slug already exists.',
+  [AppErrorCode.SERVICE_VARIANT_CLUB_NOT_IN_SERVICE]:
+    'Every service variant club must belong to the parent service.',
 
   [AppErrorCode.CLUB_NOT_FOUND]: 'Club not found.',
   [AppErrorCode.CLUB_SLUG_ALREADY_EXISTS]: 'Club slug already exists.',

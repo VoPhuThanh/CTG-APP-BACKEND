@@ -116,11 +116,12 @@ export function mapMembershipBenefitsToPublicResponses(
 
 export function mapMembershipPlanToPublicResponse(
   plan: MembershipPlan,
+  fallbackLevelId?: string,
 ): PublicMembershipPlanResponseDto {
   const dto = new PublicMembershipPlanResponseDto();
 
   dto.id = plan.id;
-  dto.levelId = plan.level.id;
+  dto.levelId = plan.level?.id ?? fallbackLevelId ?? '';
   dto.durationMonths = plan.durationMonths;
   dto.totalPrice = plan.totalPrice;
   dto.currency = plan.currency;
@@ -134,8 +135,11 @@ export function mapMembershipPlanToPublicResponse(
 
 export function mapMembershipPlansToPublicResponses(
   plans: MembershipPlan[],
+  fallbackLevelId?: string,
 ): PublicMembershipPlanResponseDto[] {
-  return plans.map(mapMembershipPlanToPublicResponse);
+  return plans.map((plan) =>
+    mapMembershipPlanToPublicResponse(plan, fallbackLevelId),
+  );
 }
 
 export function mapMembershipLevelToPublicResponse(
@@ -155,7 +159,7 @@ export function mapMembershipLevelToPublicResponse(
   dto.isFeatured = level.isFeatured;
   dto.displayOrder = level.displayOrder;
 
-  dto.plans = mapMembershipPlansToPublicResponses(level.plans ?? []);
+  dto.plans = mapMembershipPlansToPublicResponses(level.plans ?? [], level.id);
   dto.benefits = mapMembershipBenefitsToPublicResponses(level.benefits ?? []);
 
   return dto;

@@ -1,10 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsArray,
   IsBoolean,
   IsEnum,
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   Max,
   MaxLength,
@@ -55,10 +57,32 @@ export class ServiceVariantCreateDto {
   @IsString()
   descriptionVi?: string;
 
-  @ApiPropertyOptional({ example: 'https://example.com/zumba.jpg' })
+  @ApiPropertyOptional({
+    example: 'https://example.com/zumba.jpg',
+    nullable: true,
+    description: 'Absolute HTTP(S) URL or a repository-local / public path.',
+  })
   @IsOptional()
   @IsString()
-  imageUrl?: string;
+  imageUrl?: string | null;
+
+  @ApiPropertyOptional({
+    example: '/images/services/zumba-banner.jpg',
+    nullable: true,
+    description: 'Absolute HTTP(S) URL or a repository-local / public path.',
+  })
+  @IsOptional()
+  @IsString()
+  bannerImageUrl?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'https://example.com/zumba-model.jpg',
+    nullable: true,
+    description: 'Absolute HTTP(S) URL or a repository-local / public path.',
+  })
+  @IsOptional()
+  @IsString()
+  modelImageUrl?: string | null;
 
   @ApiPropertyOptional({ example: 60 })
   @IsOptional()
@@ -102,4 +126,15 @@ export class ServiceVariantCreateDto {
   @IsOptional()
   @IsBoolean()
   isFeatured?: boolean;
+
+  @ApiPropertyOptional({
+    type: [String],
+    format: 'uuid',
+    description:
+      'Exact club availability. Omit to inherit the parent service clubs; send [] for none.',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  clubIds?: string[];
 }

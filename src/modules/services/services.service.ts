@@ -15,9 +15,11 @@ import {
 } from '@/cores/pagination/pagination-utils';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { Repository } from 'typeorm';
+import { In, type EntityManager, type Repository } from 'typeorm';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
+import { Club } from '../clubs/entities/club.entity';
+import { ClubStatus } from '../clubs/enums/club.enum';
 import { User } from '../users/entities/user.entity';
 import type { ServiceVariantCreateDto } from './dtos/create-service-variant.dto';
 import type { ServiceCreateDto } from './dtos/create-service.dto';
@@ -31,12 +33,18 @@ import {
   mapServiceToResponse,
   mapServicesToResponses,
   mapServiceVariantToResponse,
+  mapServiceVariantToPublicDetailResponse,
+  mapServiceVariantToPublicResponse,
   mapServicesToPublicResponses,
   mapServiceToPublicResponse,
 } from './services.mapper';
 import { ServiceSkillLevel, ServiceStatus } from './enums/service.enum';
 import { generateSlug } from '@/cores/utils/slug.util';
-import { PublicServiceResponseDto } from './dtos/public-service.dto';
+import {
+  PublicServiceVariantDetailResponseDto,
+  PublicServiceResponseDto,
+  PublicServiceVariantResponseDto,
+} from './dtos/public-service.dto';
 
 @Injectable()
 export class ServicesService {
@@ -102,6 +110,8 @@ export class ServicesService {
         : await this.serviceRepository
             .createQueryBuilder('service')
             .leftJoinAndSelect('service.variants', 'variant')
+            .leftJoinAndSelect('service.clubs', 'serviceClub')
+            .leftJoinAndSelect('variant.clubs', 'variantClub')
             .leftJoinAndSelect('service.createdBy', 'createdBy')
             .leftJoinAndSelect('service.updatedBy', 'updatedBy')
             .leftJoinAndSelect('variant.createdBy', 'variantCreatedBy')
@@ -234,6 +244,7 @@ export class ServicesService {
     const queryBuilder = this.serviceVariantRepository
       .createQueryBuilder('variant')
       .leftJoinAndSelect('variant.service', 'service')
+      .leftJoinAndSelect('variant.clubs', 'club')
       .leftJoinAndSelect('variant.createdBy', 'createdBy')
       .leftJoinAndSelect('variant.updatedBy', 'updatedBy')
       .where('service.id = :serviceId', { serviceId });
@@ -291,36 +302,55 @@ export class ServicesService {
     currentUser: AuthenticatedUser,
   ): Promise<ServiceVariantResponseDto> {
     const creator = await this.findCurrentUserOrThrow(currentUser);
-    const service = await this.ensureServiceExists(serviceId);
-
     const slug = dto.slug ?? generateSlug(dto.nameEn);
 
     await this.ensureServiceVariantSlugIsAvailable(serviceId, slug);
 
-    const variant = this.serviceVariantRepository.create({
-      service,
-      nameEn: dto.nameEn,
-      nameVi: dto.nameVi,
-      slug,
-      shortDescriptionEn: dto.shortDescriptionEn,
-      shortDescriptionVi: dto.shortDescriptionVi,
-      descriptionEn: dto.descriptionEn,
-      descriptionVi: dto.descriptionVi,
-      imageUrl: dto.imageUrl,
-      durationMinutes: dto.durationMinutes,
-      caloriesBurnedMin: dto.caloriesBurnedMin,
-      caloriesBurnedMax: dto.caloriesBurnedMax,
-      skillLevel: dto.skillLevel ?? ServiceSkillLevel.ALL_LEVELS,
-      status: dto.status ?? ServiceStatus.DRAFT,
-      displayOrder: dto.displayOrder ?? 0,
-      isFeatured: dto.isFeatured ?? false,
-      createdBy: creator,
-      updatedBy: creator,
+    let createdVariantId = '';
+
+    await this.serviceVariantRepository.manager.transaction(async (manager) => {
+      const service = await this.findServiceWithClubsOrThrow(
+        manager,
+        serviceId,
+      );
+      const clubs =
+        dto.clubIds === undefined
+          ? service.clubs
+          : await this.findVariantClubsByIdsOrThrow(
+              manager,
+              service,
+              dto.clubIds,
+            );
+      const variantRepository = manager.getRepository(ServiceVariant);
+      const variant = variantRepository.create({
+        service,
+        nameEn: dto.nameEn,
+        nameVi: dto.nameVi,
+        slug,
+        shortDescriptionEn: dto.shortDescriptionEn,
+        shortDescriptionVi: dto.shortDescriptionVi,
+        descriptionEn: dto.descriptionEn,
+        descriptionVi: dto.descriptionVi,
+        imageUrl: dto.imageUrl,
+        bannerImageUrl: dto.bannerImageUrl,
+        modelImageUrl: dto.modelImageUrl,
+        durationMinutes: dto.durationMinutes,
+        caloriesBurnedMin: dto.caloriesBurnedMin,
+        caloriesBurnedMax: dto.caloriesBurnedMax,
+        skillLevel: dto.skillLevel ?? ServiceSkillLevel.ALL_LEVELS,
+        status: dto.status ?? ServiceStatus.DRAFT,
+        displayOrder: dto.displayOrder ?? 0,
+        isFeatured: dto.isFeatured ?? false,
+        clubs,
+        createdBy: creator,
+        updatedBy: creator,
+      });
+
+      const savedVariant = await variantRepository.save(variant);
+      createdVariantId = savedVariant.id;
     });
 
-    await this.serviceVariantRepository.save(variant);
-
-    return this.findVariant(serviceId, variant.id);
+    return this.findVariant(serviceId, createdVariantId);
   }
 
   async findVariant(
@@ -346,36 +376,81 @@ export class ServicesService {
       variant.slug = dto.slug;
     }
 
-    if (dto.nameEn !== undefined) variant.nameEn = dto.nameEn;
-    if (dto.nameVi !== undefined) variant.nameVi = dto.nameVi;
-    if (dto.shortDescriptionEn !== undefined) {
-      variant.shortDescriptionEn = dto.shortDescriptionEn;
-    }
-    if (dto.shortDescriptionVi !== undefined) {
-      variant.shortDescriptionVi = dto.shortDescriptionVi;
-    }
-    if (dto.descriptionEn !== undefined)
-      variant.descriptionEn = dto.descriptionEn;
-    if (dto.descriptionVi !== undefined)
-      variant.descriptionVi = dto.descriptionVi;
-    if (dto.imageUrl !== undefined) variant.imageUrl = dto.imageUrl;
-    if (dto.durationMinutes !== undefined) {
-      variant.durationMinutes = dto.durationMinutes;
-    }
-    if (dto.caloriesBurnedMin !== undefined) {
-      variant.caloriesBurnedMin = dto.caloriesBurnedMin;
-    }
-    if (dto.caloriesBurnedMax !== undefined) {
-      variant.caloriesBurnedMax = dto.caloriesBurnedMax;
-    }
-    if (dto.skillLevel !== undefined) variant.skillLevel = dto.skillLevel;
-    if (dto.status !== undefined) variant.status = dto.status;
-    if (dto.displayOrder !== undefined) variant.displayOrder = dto.displayOrder;
-    if (dto.isFeatured !== undefined) variant.isFeatured = dto.isFeatured;
+    await this.serviceVariantRepository.manager.transaction(async (manager) => {
+      const variantRepository = manager.getRepository(ServiceVariant);
+      const managedVariant = await variantRepository.findOne({
+        where: {
+          id: variantId,
+          service: { id: serviceId },
+        },
+        relations: {
+          service: true,
+          clubs: true,
+        },
+      });
 
-    variant.updatedBy = updater;
+      if (!managedVariant) {
+        throw AppError.notFound(AppErrorCode.SERVICE_VARIANT_NOT_FOUND);
+      }
 
-    await this.serviceVariantRepository.save(variant);
+      if (dto.slug && dto.slug !== managedVariant.slug) {
+        managedVariant.slug = dto.slug;
+      }
+      if (dto.nameEn !== undefined) managedVariant.nameEn = dto.nameEn;
+      if (dto.nameVi !== undefined) managedVariant.nameVi = dto.nameVi;
+      if (dto.shortDescriptionEn !== undefined) {
+        managedVariant.shortDescriptionEn = dto.shortDescriptionEn;
+      }
+      if (dto.shortDescriptionVi !== undefined) {
+        managedVariant.shortDescriptionVi = dto.shortDescriptionVi;
+      }
+      if (dto.descriptionEn !== undefined) {
+        managedVariant.descriptionEn = dto.descriptionEn;
+      }
+      if (dto.descriptionVi !== undefined) {
+        managedVariant.descriptionVi = dto.descriptionVi;
+      }
+      if (dto.imageUrl !== undefined) managedVariant.imageUrl = dto.imageUrl;
+      if (dto.bannerImageUrl !== undefined) {
+        managedVariant.bannerImageUrl = dto.bannerImageUrl;
+      }
+      if (dto.modelImageUrl !== undefined) {
+        managedVariant.modelImageUrl = dto.modelImageUrl;
+      }
+      if (dto.durationMinutes !== undefined) {
+        managedVariant.durationMinutes = dto.durationMinutes;
+      }
+      if (dto.caloriesBurnedMin !== undefined) {
+        managedVariant.caloriesBurnedMin = dto.caloriesBurnedMin;
+      }
+      if (dto.caloriesBurnedMax !== undefined) {
+        managedVariant.caloriesBurnedMax = dto.caloriesBurnedMax;
+      }
+      if (dto.skillLevel !== undefined) {
+        managedVariant.skillLevel = dto.skillLevel;
+      }
+      if (dto.status !== undefined) managedVariant.status = dto.status;
+      if (dto.displayOrder !== undefined) {
+        managedVariant.displayOrder = dto.displayOrder;
+      }
+      if (dto.isFeatured !== undefined) {
+        managedVariant.isFeatured = dto.isFeatured;
+      }
+      if (dto.clubIds !== undefined) {
+        const service = await this.findServiceWithClubsOrThrow(
+          manager,
+          serviceId,
+        );
+        managedVariant.clubs = await this.findVariantClubsByIdsOrThrow(
+          manager,
+          service,
+          dto.clubIds,
+        );
+      }
+
+      managedVariant.updatedBy = updater;
+      await variantRepository.save(managedVariant);
+    });
 
     return this.findVariant(serviceId, variant.id);
   }
@@ -407,7 +482,9 @@ export class ServicesService {
           createdBy: true,
           updatedBy: true,
           service: true,
+          clubs: true,
         },
+        clubs: true,
         createdBy: true,
         updatedBy: true,
       },
@@ -439,6 +516,7 @@ export class ServicesService {
       },
       relations: {
         service: true,
+        clubs: true,
         createdBy: true,
         updatedBy: true,
       },
@@ -513,6 +591,51 @@ export class ServicesService {
 
     return service;
   }
+
+  private async findServiceWithClubsOrThrow(
+    manager: EntityManager,
+    serviceId: string,
+  ): Promise<Service> {
+    const service = await manager.getRepository(Service).findOne({
+      where: { id: serviceId },
+      relations: { clubs: true },
+    });
+
+    if (!service) {
+      throw AppError.notFound(AppErrorCode.SERVICE_NOT_FOUND);
+    }
+
+    return service;
+  }
+
+  private async findVariantClubsByIdsOrThrow(
+    manager: EntityManager,
+    service: Service,
+    clubIds: string[],
+  ): Promise<Club[]> {
+    const uniqueClubIds = [...new Set(clubIds)];
+
+    if (uniqueClubIds.length === 0) {
+      return [];
+    }
+
+    const clubs = await manager.getRepository(Club).find({
+      where: { id: In(uniqueClubIds) },
+    });
+
+    if (clubs.length !== uniqueClubIds.length) {
+      throw AppError.notFound(AppErrorCode.CLUB_NOT_FOUND);
+    }
+
+    const serviceClubIds = new Set(service.clubs.map((club) => club.id));
+    if (clubs.some((club) => !serviceClubIds.has(club.id))) {
+      throw AppError.badRequest(
+        AppErrorCode.SERVICE_VARIANT_CLUB_NOT_IN_SERVICE,
+      );
+    }
+
+    return clubs;
+  }
   async findPublicServices(): Promise<PublicServiceResponseDto[]> {
     const services = await this.serviceRepository.find({
       where: {
@@ -545,6 +668,49 @@ export class ServicesService {
     return mapServicesToPublicResponses(services);
   }
 
+  async findPublicServiceVariants(
+    slug: string,
+    query: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<PublicServiceVariantResponseDto>> {
+    const service = await this.serviceRepository.findOne({
+      select: {
+        id: true,
+      },
+      where: {
+        slug,
+        status: ServiceStatus.PUBLISHED,
+      },
+    });
+
+    if (!service) {
+      throw AppError.notFound(AppErrorCode.SERVICE_NOT_FOUND);
+    }
+
+    const queryBuilder = this.serviceVariantRepository
+      .createQueryBuilder('variant')
+      .innerJoinAndSelect('variant.service', 'service')
+      .where('service.id = :serviceId', { serviceId: service.id })
+      .andWhere('service.status = :serviceStatus', {
+        serviceStatus: ServiceStatus.PUBLISHED,
+      })
+      .andWhere('variant.status = :variantStatus', {
+        variantStatus: ServiceStatus.PUBLISHED,
+      })
+      .orderBy('variant.displayOrder', 'ASC')
+      .addOrderBy('variant.createdAt', 'DESC')
+      .addOrderBy('variant.id', 'ASC')
+      .skip(getPaginationSkip(query))
+      .take(getPaginationTake(query));
+
+    const [variants, totalItems] = await queryBuilder.getManyAndCount();
+
+    return buildPaginatedResponse(
+      variants.map(mapServiceVariantToPublicResponse),
+      totalItems,
+      query,
+    );
+  }
+
   async findPublicServiceBySlug(
     slug: string,
   ): Promise<PublicServiceResponseDto> {
@@ -572,5 +738,39 @@ export class ServicesService {
     }
 
     return mapServiceToPublicResponse(service);
+  }
+
+  async findPublicServiceVariantBySlug(
+    serviceSlug: string,
+    variantSlug: string,
+  ): Promise<PublicServiceVariantDetailResponseDto> {
+    const variant = await this.serviceVariantRepository
+      .createQueryBuilder('variant')
+      .innerJoinAndSelect('variant.service', 'service')
+      .leftJoinAndSelect(
+        'variant.clubs',
+        'club',
+        'club.status = :clubStatus AND club.deletedAt IS NULL',
+        { clubStatus: ClubStatus.PUBLISHED },
+      )
+      .where('service.slug = :serviceSlug', { serviceSlug })
+      .andWhere('service.status = :serviceStatus', {
+        serviceStatus: ServiceStatus.PUBLISHED,
+      })
+      .andWhere('service.deletedAt IS NULL')
+      .andWhere('variant.slug = :variantSlug', { variantSlug })
+      .andWhere('variant.status = :variantStatus', {
+        variantStatus: ServiceStatus.PUBLISHED,
+      })
+      .orderBy('club.displayOrder', 'ASC')
+      .addOrderBy('club.nameEn', 'ASC')
+      .addOrderBy('club.id', 'ASC')
+      .getOne();
+
+    if (!variant) {
+      throw AppError.notFound(AppErrorCode.SERVICE_VARIANT_NOT_FOUND);
+    }
+
+    return mapServiceVariantToPublicDetailResponse(variant);
   }
 }

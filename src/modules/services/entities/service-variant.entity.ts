@@ -1,10 +1,13 @@
 import { BaseEntityCore } from '@/cores/entities/core-entity';
+import { Club } from '@/modules/clubs/entities/club.entity';
 import { User } from '@/modules/users/entities/user.entity';
 import {
   Column,
   Entity,
   Index,
   JoinColumn,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
   Unique,
@@ -50,7 +53,13 @@ export class ServiceVariant extends BaseEntityCore {
   descriptionVi?: string;
 
   @Column({ name: 'image_url', type: 'text', nullable: true })
-  imageUrl?: string;
+  imageUrl!: string | null;
+
+  @Column({ name: 'banner_image_url', type: 'text', nullable: true })
+  bannerImageUrl!: string | null;
+
+  @Column({ name: 'model_image_url', type: 'text', nullable: true })
+  modelImageUrl!: string | null;
 
   @Column({ name: 'duration_minutes', type: 'int', nullable: true })
   durationMinutes?: number;
@@ -81,6 +90,20 @@ export class ServiceVariant extends BaseEntityCore {
 
   @Column({ name: 'is_featured', type: 'boolean', default: false })
   isFeatured!: boolean;
+
+  @ManyToMany(() => Club, (club) => club.serviceVariants)
+  @JoinTable({
+    name: 'service_variant_clubs',
+    joinColumn: {
+      name: 'service_variant_id',
+      referencedColumnName: 'id',
+    },
+    inverseJoinColumn: {
+      name: 'club_id',
+      referencedColumnName: 'id',
+    },
+  })
+  clubs!: Club[];
 
   @ManyToOne(() => User, {
     nullable: true,

@@ -1,6 +1,7 @@
 import { BaseEntityCore } from '@/cores/entities/core-entity';
 import { Facility } from '@/modules/facilities/entities/facility.entity';
 import { Service } from '@/modules/services/entities/service.entity';
+import { ServiceVariant } from '@/modules/services/entities/service-variant.entity';
 import { User } from '@/modules/users/entities/user.entity';
 import {
   Column,
@@ -102,6 +103,12 @@ export class Club extends BaseEntityCore {
     },
   })
   services!: Service[];
+
+  @ManyToMany(() => ServiceVariant, (variant) => variant.clubs, {
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  })
+  serviceVariants!: ServiceVariant[];
 
   @ManyToOne(() => User, {
     nullable: true,

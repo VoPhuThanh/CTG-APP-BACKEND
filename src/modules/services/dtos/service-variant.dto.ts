@@ -1,6 +1,24 @@
 import { MetadataResponseDto } from '@/cores/dtos/metadata.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ServiceSkillLevel, ServiceStatus } from '../enums/service.enum';
+import { ClubStatus } from '../../clubs/enums/club.enum';
+
+export class ServiceVariantClubSummaryDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  nameEn!: string;
+
+  @ApiProperty()
+  nameVi!: string;
+
+  @ApiProperty()
+  slug!: string;
+
+  @ApiProperty({ enum: ClubStatus })
+  status!: ClubStatus;
+}
 
 export class ServiceVariantResponseDto {
   @ApiProperty()
@@ -34,6 +52,12 @@ export class ServiceVariantResponseDto {
   imageUrl!: string | null;
 
   @ApiPropertyOptional({ nullable: true })
+  bannerImageUrl!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  modelImageUrl!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
   durationMinutes!: number | null;
 
   @ApiPropertyOptional({ nullable: true })
@@ -53,6 +77,9 @@ export class ServiceVariantResponseDto {
 
   @ApiProperty()
   isFeatured!: boolean;
+
+  @ApiProperty({ type: [ServiceVariantClubSummaryDto] })
+  clubs!: ServiceVariantClubSummaryDto[];
 
   @ApiProperty()
   metadata!: MetadataResponseDto;

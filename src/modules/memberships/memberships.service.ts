@@ -691,16 +691,23 @@ export class MembershipsService {
     return benefits;
   }
   async findPublicLevels(): Promise<PublicMembershipLevelResponseDto[]> {
-    const levels = await this.levelRepository.find({
-      where: {
+    const levels = await this.levelRepository
+      .createQueryBuilder('level')
+      .leftJoinAndSelect('level.plans', 'plans')
+      .leftJoinAndSelect('level.benefits', 'benefits')
+      .where('level.status = :status', {
         status: MembershipStatus.PUBLISHED,
-      },
-      order: {
-        displayOrder: 'ASC',
-        createdAt: 'DESC',
-        id: 'ASC',
-      },
-    });
+      })
+      .andWhere('(plans.status = :planStatus OR plans.id IS NULL)', {
+        planStatus: MembershipStatus.PUBLISHED,
+      })
+      .andWhere('(benefits.isActive = :benefitActive OR benefits.id IS NULL)', {
+        benefitActive: true,
+      })
+      .orderBy('level.displayOrder', 'ASC')
+      .addOrderBy('plans.displayOrder', 'ASC')
+      .addOrderBy('benefits.displayOrder', 'ASC')
+      .getMany();
 
     return mapMembershipLevelsToPublicResponses(levels);
   }

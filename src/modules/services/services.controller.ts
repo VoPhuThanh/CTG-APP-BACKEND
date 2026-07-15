@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiOkResponse,
   ApiOperation,
   ApiQuery,
   ApiTags,
@@ -24,6 +25,10 @@ import { ServiceVariantCreateDto } from './dtos/create-service-variant.dto';
 import { ServiceCreateDto } from './dtos/create-service.dto';
 import { ServiceVariantUpdateDto } from './dtos/update-service-variant.dto';
 import { ServiceUpdateDto } from './dtos/update-service.dto';
+import {
+  PublicServiceVariantDetailResponseDto,
+  PublicServiceVariantPaginatedResponseDto,
+} from './dtos/public-service.dto';
 import { ServicesService } from './services.service';
 
 @ApiTags('Services')
@@ -42,6 +47,33 @@ export class ServicesController {
   @Get('public')
   findPublicServices() {
     return this.servicesService.findPublicServices();
+  }
+
+  @ApiOperation({ summary: 'Find a published public service variant detail' })
+  @ApiOkResponse({ type: PublicServiceVariantDetailResponseDto })
+  @Get('public/:serviceSlug/variants/:variantSlug')
+  findPublicServiceVariantBySlug(
+    @Param('serviceSlug') serviceSlug: string,
+    @Param('variantSlug') variantSlug: string,
+  ) {
+    return this.servicesService.findPublicServiceVariantBySlug(
+      serviceSlug,
+      variantSlug,
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Find published variants for a public service by slug',
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 9 })
+  @ApiOkResponse({ type: PublicServiceVariantPaginatedResponseDto })
+  @Get('public/:slug/variants')
+  findPublicServiceVariants(
+    @Param('slug') slug: string,
+    @Query() query: PaginationQueryDto,
+  ) {
+    return this.servicesService.findPublicServiceVariants(slug, query);
   }
 
   @ApiOperation({ summary: 'Find public service by slug' })
