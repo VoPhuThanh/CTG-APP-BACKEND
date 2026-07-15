@@ -8,8 +8,10 @@ import { PaginationQueryDto } from '@/cores/pagination/pagination-query.dto';
 import { PaginatedResponseDto } from '@/cores/pagination/pagination-response.dto';
 import {
   buildPaginatedResponse,
+  getPaginatedIds,
   getPaginationSkip,
   getPaginationTake,
+  orderEntitiesByIds,
 } from '@/cores/pagination/pagination-utils';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -56,13 +58,7 @@ export class ServicesService {
     const sortOrder = query.sortOrder ?? 'ASC';
     const search = query.search?.trim();
 
-    const queryBuilder = this.serviceRepository
-      .createQueryBuilder('service')
-      .leftJoinAndSelect('service.variants', 'variant')
-      .leftJoinAndSelect('service.createdBy', 'createdBy')
-      .leftJoinAndSelect('service.updatedBy', 'updatedBy')
-      .leftJoinAndSelect('variant.createdBy', 'variantCreatedBy')
-      .leftJoinAndSelect('variant.updatedBy', 'variantUpdatedBy');
+    const queryBuilder = this.serviceRepository.createQueryBuilder('service');
 
     if (search) {
       queryBuilder.andWhere(
@@ -92,13 +88,30 @@ export class ServicesService {
 
     queryBuilder
       .addOrderBy('service.createdAt', 'DESC')
-      .addOrderBy('service.id', 'ASC')
-      .addOrderBy('variant.displayOrder', 'ASC')
-      .addOrderBy('variant.createdAt', 'DESC')
-      .skip(getPaginationSkip(query))
-      .take(getPaginationTake(query));
+      .addOrderBy('service.id', 'ASC');
 
-    const [services, totalItems] = await queryBuilder.getManyAndCount();
+    const { ids: pageIds, totalItems } = await getPaginatedIds(
+      queryBuilder,
+      'service',
+      query,
+    );
+
+    const loadedServices =
+      pageIds.length === 0
+        ? []
+        : await this.serviceRepository
+            .createQueryBuilder('service')
+            .leftJoinAndSelect('service.variants', 'variant')
+            .leftJoinAndSelect('service.createdBy', 'createdBy')
+            .leftJoinAndSelect('service.updatedBy', 'updatedBy')
+            .leftJoinAndSelect('variant.createdBy', 'variantCreatedBy')
+            .leftJoinAndSelect('variant.updatedBy', 'variantUpdatedBy')
+            .where('service.id IN (:...pageIds)', { pageIds })
+            .orderBy('variant.displayOrder', 'ASC')
+            .addOrderBy('variant.createdAt', 'DESC')
+            .getMany();
+
+    const services = orderEntitiesByIds(loadedServices, pageIds);
 
     return buildPaginatedResponse(
       mapServicesToResponses(services),

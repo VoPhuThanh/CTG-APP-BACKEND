@@ -9,8 +9,8 @@ import { PaginationQueryDto } from '@/cores/pagination/pagination-query.dto';
 import { PaginatedResponseDto } from '@/cores/pagination/pagination-response.dto';
 import {
   buildPaginatedResponse,
-  getPaginationSkip,
-  getPaginationTake,
+  getPaginatedIds,
+  orderEntitiesByIds,
 } from '@/cores/pagination/pagination-utils';
 
 import { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
@@ -43,11 +43,7 @@ export class RolesService {
     const sortOrder = query.sortOrder ?? 'ASC';
     const search = query.search?.trim();
 
-    const queryBuilder = this.roleRepository
-      .createQueryBuilder('role')
-      .leftJoinAndSelect('role.permissions', 'permission')
-      .leftJoinAndSelect('role.createdBy', 'createdBy')
-      .leftJoinAndSelect('role.updatedBy', 'updatedBy');
+    const queryBuilder = this.roleRepository.createQueryBuilder('role');
 
     if (search) {
       queryBuilder.andWhere(
@@ -70,12 +66,29 @@ export class RolesService {
       queryBuilder.orderBy('role.createdAt', 'DESC');
     }
 
-    queryBuilder
-      .addOrderBy('role.id', 'ASC')
-      .skip(getPaginationSkip(query))
-      .take(getPaginationTake(query));
+    queryBuilder.addOrderBy('role.id', 'ASC');
 
-    const [roles, totalItems] = await queryBuilder.getManyAndCount();
+    const { ids: pageIds, totalItems } = await getPaginatedIds(
+      queryBuilder,
+      'role',
+      query,
+    );
+
+    const loadedRoles =
+      pageIds.length === 0
+        ? []
+        : await this.roleRepository.find({
+            where: {
+              id: In(pageIds),
+            },
+            relations: {
+              permissions: true,
+              createdBy: true,
+              updatedBy: true,
+            },
+          });
+
+    const roles = orderEntitiesByIds(loadedRoles, pageIds);
 
     return buildPaginatedResponse(
       mapRolesToResponses(roles),

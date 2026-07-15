@@ -14,8 +14,8 @@
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
     "lint-fix": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-"typecheck": "tsc --noEmit",
-"check": "npm run format && npm run lint && npm run typecheck",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run format && npm run lint && npm run typecheck",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
@@ -24,7 +24,7 @@
     "migration:generate": "npm run typeorm -- migration:generate -d src/database/data-source.ts src/database/migrations/init",
     "migration:run": "npm run typeorm -- migration:run -d src/database/data-source.ts",
     "seed": "ts-node -r tsconfig-paths/register src/database/seeds/admin-seeds.ts",
-        "seed:permissions": "ts-node -r tsconfig-paths/register src/database/seeds/permission-seeds.ts"
+    "seed:permissions": "ts-node -r tsconfig-paths/register src/database/seeds/permission-seeds.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

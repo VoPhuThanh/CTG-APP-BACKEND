@@ -5,8 +5,8 @@ import { PaginationQueryDto } from '@/cores/pagination/pagination-query.dto';
 import { PaginatedResponseDto } from '@/cores/pagination/pagination-response.dto';
 import {
   buildPaginatedResponse,
-  getPaginationSkip,
-  getPaginationTake,
+  getPaginatedIds,
+  orderEntitiesByIds,
 } from '@/cores/pagination/pagination-utils';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -54,12 +54,7 @@ export class ClubsService {
     const sortOrder = query.sortOrder ?? 'ASC';
     const search = query.search?.trim();
 
-    const queryBuilder = this.clubRepository
-      .createQueryBuilder('club')
-      .leftJoinAndSelect('club.facilities', 'facility')
-      .leftJoinAndSelect('club.services', 'service')
-      .leftJoinAndSelect('club.createdBy', 'createdBy')
-      .leftJoinAndSelect('club.updatedBy', 'updatedBy');
+    const queryBuilder = this.clubRepository.createQueryBuilder('club');
 
     if (search) {
       queryBuilder.andWhere(
@@ -93,15 +88,31 @@ export class ClubsService {
 
     queryBuilder
       .addOrderBy('club.createdAt', 'DESC')
-      .addOrderBy('club.id', 'ASC')
-      .addOrderBy('facility.displayOrder', 'ASC')
-      .addOrderBy('facility.nameEn', 'ASC')
-      .addOrderBy('service.displayOrder', 'ASC')
-      .addOrderBy('service.nameEn', 'ASC')
-      .skip(getPaginationSkip(query))
-      .take(getPaginationTake(query));
+      .addOrderBy('club.id', 'ASC');
 
-    const [clubs, totalItems] = await queryBuilder.getManyAndCount();
+    const { ids: pageIds, totalItems } = await getPaginatedIds(
+      queryBuilder,
+      'club',
+      query,
+    );
+
+    const loadedClubs =
+      pageIds.length === 0
+        ? []
+        : await this.clubRepository
+            .createQueryBuilder('club')
+            .leftJoinAndSelect('club.facilities', 'facility')
+            .leftJoinAndSelect('club.services', 'service')
+            .leftJoinAndSelect('club.createdBy', 'createdBy')
+            .leftJoinAndSelect('club.updatedBy', 'updatedBy')
+            .where('club.id IN (:...pageIds)', { pageIds })
+            .orderBy('facility.displayOrder', 'ASC')
+            .addOrderBy('facility.nameEn', 'ASC')
+            .addOrderBy('service.displayOrder', 'ASC')
+            .addOrderBy('service.nameEn', 'ASC')
+            .getMany();
+
+    const clubs = orderEntitiesByIds(loadedClubs, pageIds);
 
     return buildPaginatedResponse(
       mapClubsToResponses(clubs),

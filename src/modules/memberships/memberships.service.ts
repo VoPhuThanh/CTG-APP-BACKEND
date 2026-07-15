@@ -9,8 +9,10 @@ import { PaginationQueryDto } from '@/cores/pagination/pagination-query.dto';
 import { PaginatedResponseDto } from '@/cores/pagination/pagination-response.dto';
 import {
   buildPaginatedResponse,
+  getPaginatedIds,
   getPaginationSkip,
   getPaginationTake,
+  orderEntitiesByIds,
 } from '@/cores/pagination/pagination-utils';
 import { generateSlug } from '@/cores/utils/slug.util';
 import { Injectable } from '@nestjs/common';
@@ -74,16 +76,7 @@ export class MembershipsService {
     const sortOrder = query.sortOrder ?? 'ASC';
     const search = query.search?.trim();
 
-    const queryBuilder = this.levelRepository
-      .createQueryBuilder('level')
-      .leftJoinAndSelect('level.plans', 'plan')
-      .leftJoinAndSelect('level.benefits', 'benefit')
-      .leftJoinAndSelect('level.createdBy', 'createdBy')
-      .leftJoinAndSelect('level.updatedBy', 'updatedBy')
-      .leftJoinAndSelect('plan.createdBy', 'planCreatedBy')
-      .leftJoinAndSelect('plan.updatedBy', 'planUpdatedBy')
-      .leftJoinAndSelect('benefit.createdBy', 'benefitCreatedBy')
-      .leftJoinAndSelect('benefit.updatedBy', 'benefitUpdatedBy');
+    const queryBuilder = this.levelRepository.createQueryBuilder('level');
 
     if (search) {
       queryBuilder.andWhere(
@@ -115,15 +108,35 @@ export class MembershipsService {
 
     queryBuilder
       .addOrderBy('level.createdAt', 'DESC')
-      .addOrderBy('level.id', 'ASC')
-      .addOrderBy('plan.displayOrder', 'ASC')
-      .addOrderBy('plan.durationMonths', 'ASC')
-      .addOrderBy('benefit.displayOrder', 'ASC')
-      .addOrderBy('benefit.nameEn', 'ASC')
-      .skip(getPaginationSkip(query))
-      .take(getPaginationTake(query));
+      .addOrderBy('level.id', 'ASC');
 
-    const [levels, totalItems] = await queryBuilder.getManyAndCount();
+    const { ids: pageIds, totalItems } = await getPaginatedIds(
+      queryBuilder,
+      'level',
+      query,
+    );
+
+    const loadedLevels =
+      pageIds.length === 0
+        ? []
+        : await this.levelRepository
+            .createQueryBuilder('level')
+            .leftJoinAndSelect('level.plans', 'plan')
+            .leftJoinAndSelect('level.benefits', 'benefit')
+            .leftJoinAndSelect('level.createdBy', 'createdBy')
+            .leftJoinAndSelect('level.updatedBy', 'updatedBy')
+            .leftJoinAndSelect('plan.createdBy', 'planCreatedBy')
+            .leftJoinAndSelect('plan.updatedBy', 'planUpdatedBy')
+            .leftJoinAndSelect('benefit.createdBy', 'benefitCreatedBy')
+            .leftJoinAndSelect('benefit.updatedBy', 'benefitUpdatedBy')
+            .where('level.id IN (:...pageIds)', { pageIds })
+            .orderBy('plan.displayOrder', 'ASC')
+            .addOrderBy('plan.durationMonths', 'ASC')
+            .addOrderBy('benefit.displayOrder', 'ASC')
+            .addOrderBy('benefit.nameEn', 'ASC')
+            .getMany();
+
+    const levels = orderEntitiesByIds(loadedLevels, pageIds);
 
     return buildPaginatedResponse(
       mapMembershipLevelsToResponses(levels),

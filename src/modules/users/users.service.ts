@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { type Repository } from 'typeorm';
+import { In, type Repository } from 'typeorm';
 
 import { USER_SORT_FIELDS } from '@/cores/constants/sorting.constant';
 import { AppError } from '@/cores/errors/app-error';
@@ -10,8 +10,8 @@ import { PaginationQueryDto } from '@/cores/pagination/pagination-query.dto';
 import { PaginatedResponseDto } from '@/cores/pagination/pagination-response.dto';
 import {
   buildPaginatedResponse,
-  getPaginationSkip,
-  getPaginationTake,
+  getPaginatedIds,
+  orderEntitiesByIds,
 } from '@/cores/pagination/pagination-utils';
 
 import { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
@@ -41,10 +41,7 @@ export class UsersService {
 
     const queryBuilder = this.userRepository
       .createQueryBuilder('user')
-      .leftJoinAndSelect('user.role', 'role')
-      .leftJoinAndSelect('role.permissions', 'permission')
-      .leftJoinAndSelect('user.createdBy', 'createdBy')
-      .leftJoinAndSelect('user.updatedBy', 'updatedBy');
+      .leftJoin('user.role', 'role');
 
     if (search) {
       queryBuilder.andWhere(
@@ -70,12 +67,29 @@ export class UsersService {
       queryBuilder.orderBy('user.createdAt', 'DESC');
     }
 
-    queryBuilder
-      .addOrderBy('user.id', 'ASC')
-      .skip(getPaginationSkip(query))
-      .take(getPaginationTake(query));
+    queryBuilder.addOrderBy('user.id', 'ASC');
 
-    const [users, totalItems] = await queryBuilder.getManyAndCount();
+    const { ids: pageIds, totalItems } = await getPaginatedIds(
+      queryBuilder,
+      'user',
+      query,
+    );
+
+    const loadedUsers =
+      pageIds.length === 0
+        ? []
+        : await this.userRepository.find({
+            where: {
+              id: In(pageIds),
+            },
+            relations: {
+              role: true,
+              createdBy: true,
+              updatedBy: true,
+            },
+          });
+
+    const users = orderEntitiesByIds(loadedUsers, pageIds);
 
     return buildPaginatedResponse(
       mapUsersToResponses(users),

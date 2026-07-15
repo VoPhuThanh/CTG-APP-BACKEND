@@ -94,6 +94,8 @@ function mapClubFacilityToPublicSummary(
   dto.nameEn = facility.nameEn;
   dto.nameVi = facility.nameVi;
   dto.slug = facility.slug;
+  dto.descriptionEn = facility.descriptionEn ?? null;
+  dto.descriptionVi = facility.descriptionVi ?? null;
   dto.coverImageUrl = facility.coverImageUrl ?? null;
   dto.displayOrder = facility.displayOrder;
 

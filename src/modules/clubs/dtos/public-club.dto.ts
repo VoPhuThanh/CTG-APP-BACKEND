@@ -14,6 +14,12 @@ export class PublicClubFacilitySummaryDto {
   slug!: string;
 
   @ApiPropertyOptional({ nullable: true })
+  descriptionEn!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  descriptionVi!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
   coverImageUrl!: string | null;
 
   @ApiProperty()
