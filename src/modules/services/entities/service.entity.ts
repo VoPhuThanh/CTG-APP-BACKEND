@@ -1,6 +1,7 @@
 import { BaseEntityCore } from '@/cores/entities/core-entity';
 import { Club } from '@/modules/clubs/entities/club.entity';
 import { User } from '@/modules/users/entities/user.entity';
+import { MediaAsset } from '@/modules/media-assets/entities/media-asset.entity';
 import {
   Column,
   Entity,
@@ -43,6 +44,21 @@ export class Service extends BaseEntityCore {
 
   @Column({ name: 'image_url', type: 'text', nullable: true })
   imageUrl?: string;
+
+  @Index('IDX_services_image_asset_id')
+  @Column({ name: 'image_asset_id', type: 'uuid', nullable: true })
+  imageAssetId!: string | null;
+
+  @ManyToOne(() => MediaAsset, {
+    nullable: true,
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  })
+  @JoinColumn({
+    name: 'image_asset_id',
+    foreignKeyConstraintName: 'FK_services_image_asset',
+  })
+  imageAsset!: MediaAsset | null;
 
   @Column({
     type: 'enum',

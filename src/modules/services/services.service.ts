@@ -21,6 +21,10 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-users.i
 import { Club } from '../clubs/entities/club.entity';
 import { ClubStatus } from '../clubs/enums/club.enum';
 import { User } from '../users/entities/user.entity';
+import type { MediaAsset } from '../media-assets/entities/media-asset.entity';
+import { MediaAssetReferenceSlot } from '../media-assets/enums/media-asset-reference.enum';
+import { MediaAssetUsage } from '../media-assets/enums/media-asset.enum';
+import { MediaAssetReferencesService } from '../media-assets/media-asset-references.service';
 import type { ServiceVariantCreateDto } from './dtos/create-service-variant.dto';
 import type { ServiceCreateDto } from './dtos/create-service.dto';
 import type { ServiceResponseDto } from './dtos/service.dto';
@@ -57,6 +61,8 @@ export class ServicesService {
 
     @InjectRepository(ServiceVariant)
     private readonly serviceVariantRepository: Repository<ServiceVariant>,
+
+    private readonly mediaAssetReferencesService: MediaAssetReferencesService,
   ) {}
 
   async findAll(
@@ -110,8 +116,18 @@ export class ServicesService {
         : await this.serviceRepository
             .createQueryBuilder('service')
             .leftJoinAndSelect('service.variants', 'variant')
+            .leftJoinAndSelect('service.imageAsset', 'serviceImageAsset')
             .leftJoinAndSelect('service.clubs', 'serviceClub')
             .leftJoinAndSelect('variant.clubs', 'variantClub')
+            .leftJoinAndSelect('variant.imageAsset', 'variantImageAsset')
+            .leftJoinAndSelect(
+              'variant.bannerImageAsset',
+              'variantBannerImageAsset',
+            )
+            .leftJoinAndSelect(
+              'variant.modelImageAsset',
+              'variantModelImageAsset',
+            )
             .leftJoinAndSelect('service.createdBy', 'createdBy')
             .leftJoinAndSelect('service.updatedBy', 'updatedBy')
             .leftJoinAndSelect('variant.createdBy', 'variantCreatedBy')
@@ -145,26 +161,38 @@ export class ServicesService {
     const slug = dto.slug ?? generateSlug(dto.nameEn);
 
     await this.ensureServiceSlugIsAvailable(slug);
+    let createdServiceId = '';
 
-    const service = this.serviceRepository.create({
-      nameEn: dto.nameEn,
-      nameVi: dto.nameVi,
-      slug,
-      shortDescriptionEn: dto.shortDescriptionEn,
-      shortDescriptionVi: dto.shortDescriptionVi,
-      descriptionEn: dto.descriptionEn,
-      descriptionVi: dto.descriptionVi,
-      imageUrl: dto.imageUrl,
-      status: dto.status ?? ServiceStatus.DRAFT,
-      displayOrder: dto.displayOrder ?? 0,
-      isFeatured: dto.isFeatured ?? false,
-      createdBy: creator,
-      updatedBy: creator,
+    await this.serviceRepository.manager.transaction(async (manager) => {
+      const imageAsset = await this.findImageAssetByIdOrThrow(
+        dto.imageAssetId,
+        MediaAssetReferenceSlot.SERVICE_IMAGE,
+        [MediaAssetUsage.GENERAL, MediaAssetUsage.SERVICE],
+        manager,
+      );
+      const serviceRepository = manager.getRepository(Service);
+      const service = serviceRepository.create({
+        nameEn: dto.nameEn,
+        nameVi: dto.nameVi,
+        slug,
+        shortDescriptionEn: dto.shortDescriptionEn,
+        shortDescriptionVi: dto.shortDescriptionVi,
+        descriptionEn: dto.descriptionEn,
+        descriptionVi: dto.descriptionVi,
+        imageUrl: dto.imageUrl,
+        imageAsset,
+        status: dto.status ?? ServiceStatus.DRAFT,
+        displayOrder: dto.displayOrder ?? 0,
+        isFeatured: dto.isFeatured ?? false,
+        createdBy: creator,
+        updatedBy: creator,
+      });
+
+      const savedService = await serviceRepository.save(service);
+      createdServiceId = savedService.id;
     });
 
-    await this.serviceRepository.save(service);
-
-    return this.findOne(service.id);
+    return this.findOne(createdServiceId);
   }
 
   async update(
@@ -199,7 +227,18 @@ export class ServicesService {
 
     service.updatedBy = updater;
 
-    await this.serviceRepository.save(service);
+    await this.serviceRepository.manager.transaction(async (manager) => {
+      if (dto.imageAssetId !== undefined) {
+        service.imageAsset = await this.findImageAssetByIdOrThrow(
+          dto.imageAssetId,
+          MediaAssetReferenceSlot.SERVICE_IMAGE,
+          [MediaAssetUsage.GENERAL, MediaAssetUsage.SERVICE],
+          manager,
+        );
+      }
+
+      await manager.getRepository(Service).save(service);
+    });
 
     return this.findOne(service.id);
   }
@@ -245,6 +284,9 @@ export class ServicesService {
       .createQueryBuilder('variant')
       .leftJoinAndSelect('variant.service', 'service')
       .leftJoinAndSelect('variant.clubs', 'club')
+      .leftJoinAndSelect('variant.imageAsset', 'imageAsset')
+      .leftJoinAndSelect('variant.bannerImageAsset', 'bannerImageAsset')
+      .leftJoinAndSelect('variant.modelImageAsset', 'modelImageAsset')
       .leftJoinAndSelect('variant.createdBy', 'createdBy')
       .leftJoinAndSelect('variant.updatedBy', 'updatedBy')
       .where('service.id = :serviceId', { serviceId });
@@ -322,6 +364,28 @@ export class ServicesService {
               dto.clubIds,
             );
       const variantRepository = manager.getRepository(ServiceVariant);
+      const [imageAsset, bannerImageAsset, modelImageAsset] = await Promise.all(
+        [
+          this.findImageAssetByIdOrThrow(
+            dto.imageAssetId,
+            MediaAssetReferenceSlot.SERVICE_VARIANT_IMAGE,
+            [MediaAssetUsage.GENERAL, MediaAssetUsage.SERVICE],
+            manager,
+          ),
+          this.findImageAssetByIdOrThrow(
+            dto.bannerImageAssetId,
+            MediaAssetReferenceSlot.SERVICE_VARIANT_BANNER_IMAGE,
+            [MediaAssetUsage.GENERAL, MediaAssetUsage.BANNER],
+            manager,
+          ),
+          this.findImageAssetByIdOrThrow(
+            dto.modelImageAssetId,
+            MediaAssetReferenceSlot.SERVICE_VARIANT_MODEL_IMAGE,
+            [MediaAssetUsage.GENERAL, MediaAssetUsage.SERVICE],
+            manager,
+          ),
+        ],
+      );
       const variant = variantRepository.create({
         service,
         nameEn: dto.nameEn,
@@ -332,8 +396,11 @@ export class ServicesService {
         descriptionEn: dto.descriptionEn,
         descriptionVi: dto.descriptionVi,
         imageUrl: dto.imageUrl,
+        imageAsset,
         bannerImageUrl: dto.bannerImageUrl,
+        bannerImageAsset,
         modelImageUrl: dto.modelImageUrl,
+        modelImageAsset,
         durationMinutes: dto.durationMinutes,
         caloriesBurnedMin: dto.caloriesBurnedMin,
         caloriesBurnedMax: dto.caloriesBurnedMax,
@@ -411,11 +478,35 @@ export class ServicesService {
         managedVariant.descriptionVi = dto.descriptionVi;
       }
       if (dto.imageUrl !== undefined) managedVariant.imageUrl = dto.imageUrl;
+      if (dto.imageAssetId !== undefined) {
+        managedVariant.imageAsset = await this.findImageAssetByIdOrThrow(
+          dto.imageAssetId,
+          MediaAssetReferenceSlot.SERVICE_VARIANT_IMAGE,
+          [MediaAssetUsage.GENERAL, MediaAssetUsage.SERVICE],
+          manager,
+        );
+      }
       if (dto.bannerImageUrl !== undefined) {
         managedVariant.bannerImageUrl = dto.bannerImageUrl;
       }
+      if (dto.bannerImageAssetId !== undefined) {
+        managedVariant.bannerImageAsset = await this.findImageAssetByIdOrThrow(
+          dto.bannerImageAssetId,
+          MediaAssetReferenceSlot.SERVICE_VARIANT_BANNER_IMAGE,
+          [MediaAssetUsage.GENERAL, MediaAssetUsage.BANNER],
+          manager,
+        );
+      }
       if (dto.modelImageUrl !== undefined) {
         managedVariant.modelImageUrl = dto.modelImageUrl;
+      }
+      if (dto.modelImageAssetId !== undefined) {
+        managedVariant.modelImageAsset = await this.findImageAssetByIdOrThrow(
+          dto.modelImageAssetId,
+          MediaAssetReferenceSlot.SERVICE_VARIANT_MODEL_IMAGE,
+          [MediaAssetUsage.GENERAL, MediaAssetUsage.SERVICE],
+          manager,
+        );
       }
       if (dto.durationMinutes !== undefined) {
         managedVariant.durationMinutes = dto.durationMinutes;
@@ -483,7 +574,11 @@ export class ServicesService {
           updatedBy: true,
           service: true,
           clubs: true,
+          imageAsset: true,
+          bannerImageAsset: true,
+          modelImageAsset: true,
         },
+        imageAsset: true,
         clubs: true,
         createdBy: true,
         updatedBy: true,
@@ -517,6 +612,9 @@ export class ServicesService {
       relations: {
         service: true,
         clubs: true,
+        imageAsset: true,
+        bannerImageAsset: true,
+        modelImageAsset: true,
         createdBy: true,
         updatedBy: true,
       },
@@ -547,6 +645,22 @@ export class ServicesService {
     }
 
     return user;
+  }
+
+  private async findImageAssetByIdOrThrow(
+    id: string | null | undefined,
+    slot: MediaAssetReferenceSlot,
+    compatibleUsages: readonly MediaAssetUsage[],
+    manager?: EntityManager,
+  ): Promise<MediaAsset | null> {
+    const result =
+      await this.mediaAssetReferencesService.validateImageSelection(id, {
+        manager,
+        slot,
+        compatibleUsages,
+      });
+
+    return result.asset;
   }
 
   private async ensureServiceSlugIsAvailable(slug: string): Promise<void> {
@@ -646,6 +760,7 @@ export class ServicesService {
         createdAt: 'DESC',
         id: 'ASC',
       },
+      relations: { imageAsset: true },
     });
 
     return mapServicesToPublicResponses(services);
@@ -663,6 +778,7 @@ export class ServicesService {
         id: 'ASC',
       },
       take: 3,
+      relations: { imageAsset: true },
     });
 
     return mapServicesToPublicResponses(services);
@@ -689,6 +805,7 @@ export class ServicesService {
     const queryBuilder = this.serviceVariantRepository
       .createQueryBuilder('variant')
       .innerJoinAndSelect('variant.service', 'service')
+      .leftJoinAndSelect('variant.imageAsset', 'imageAsset')
       .where('service.id = :serviceId', { serviceId: service.id })
       .andWhere('service.status = :serviceStatus', {
         serviceStatus: ServiceStatus.PUBLISHED,
@@ -724,6 +841,8 @@ export class ServicesService {
           variantStatus: ServiceStatus.PUBLISHED,
         },
       )
+      .leftJoinAndSelect('service.imageAsset', 'serviceImageAsset')
+      .leftJoinAndSelect('variant.imageAsset', 'variantImageAsset')
       .where('service.slug = :slug', { slug })
       .andWhere('service.status = :serviceStatus', {
         serviceStatus: ServiceStatus.PUBLISHED,
@@ -747,6 +866,9 @@ export class ServicesService {
     const variant = await this.serviceVariantRepository
       .createQueryBuilder('variant')
       .innerJoinAndSelect('variant.service', 'service')
+      .leftJoinAndSelect('variant.imageAsset', 'imageAsset')
+      .leftJoinAndSelect('variant.bannerImageAsset', 'bannerImageAsset')
+      .leftJoinAndSelect('variant.modelImageAsset', 'modelImageAsset')
       .leftJoinAndSelect(
         'variant.clubs',
         'club',

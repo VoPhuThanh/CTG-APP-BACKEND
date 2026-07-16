@@ -2,9 +2,19 @@ import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import { MEDIA_STORAGE_CONFIG } from './cores/storage/storage.module';
+import type { MediaStorageConfig } from './configs/media-storage.config';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const mediaStorageConfig = app.get<MediaStorageConfig>(MEDIA_STORAGE_CONFIG);
+
+  app.useStaticAssets(mediaStorageConfig.localDirectory, {
+    prefix: `${mediaStorageConfig.publicPath}/`,
+    index: false,
+    redirect: false,
+  });
   const allowedOrigins = [process.env.FRONTEND_URL, process.env.CMS_URL].filter(
     (origin): origin is string => Boolean(origin),
   );
@@ -30,4 +40,4 @@ async function bootstrap() {
   SwaggerModule.setup('api-docs', app, document);
   await app.listen(process.env.PORT ?? 3000);
 }
-bootstrap();
+void bootstrap();

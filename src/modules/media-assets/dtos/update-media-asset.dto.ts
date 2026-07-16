@@ -1,6 +1,7 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiHideProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
+  IsEmpty,
   IsEnum,
   IsInt,
   IsOptional,
@@ -45,6 +46,26 @@ export class MediaAssetUpdateDto {
   @IsOptional()
   @IsString()
   url?: string;
+
+  @ApiHideProperty()
+  @IsEmpty({
+    message: 'storageProvider is server-managed; use the upload route',
+  })
+  storageProvider?: never;
+
+  @ApiHideProperty()
+  @IsEmpty({ message: 'storageKey is server-managed; use the upload route' })
+  storageKey?: never;
+
+  @ApiHideProperty()
+  @IsEmpty({
+    message: 'originalFilename is server-managed; use the upload route',
+  })
+  originalFilename?: never;
+
+  @ApiHideProperty()
+  @IsEmpty({ message: 'checksum is server-managed; use the upload route' })
+  checksum?: never;
 
   @ApiPropertyOptional({ enum: MediaAssetType })
   @IsOptional()

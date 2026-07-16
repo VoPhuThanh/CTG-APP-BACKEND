@@ -5,6 +5,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   MaxLength,
   Min,
@@ -57,6 +58,15 @@ export class ServiceCreateDto {
   @IsOptional()
   @IsString()
   imageUrl?: string;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description: 'Managed media asset for the service card/selector image.',
+  })
+  @IsOptional()
+  @IsUUID()
+  imageAssetId?: string | null;
 
   @ApiPropertyOptional({ enum: ServiceStatus, default: ServiceStatus.DRAFT })
   @IsOptional()

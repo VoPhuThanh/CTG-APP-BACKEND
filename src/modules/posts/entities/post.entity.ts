@@ -1,5 +1,6 @@
 import { BaseEntityCore } from '@/cores/entities/core-entity';
 import { User } from '@/modules/users/entities/user.entity';
+import { MediaAsset } from '@/modules/media-assets/entities/media-asset.entity';
 import {
   Column,
   Entity,
@@ -46,8 +47,29 @@ export class Post extends BaseEntityCore {
   @Column({ name: 'content_url_vi', type: 'text', nullable: true })
   contentUrlVi?: string;
 
+  @Column({ name: 'content_html_en', type: 'text', nullable: true })
+  contentHtmlEn!: string | null;
+
+  @Column({ name: 'content_html_vi', type: 'text', nullable: true })
+  contentHtmlVi!: string | null;
+
   @Column({ name: 'cover_image_url', type: 'text', nullable: true })
   coverImageUrl?: string;
+
+  @Index('IDX_posts_cover_image_asset_id')
+  @Column({ name: 'cover_image_asset_id', type: 'uuid', nullable: true })
+  coverImageAssetId!: string | null;
+
+  @ManyToOne(() => MediaAsset, {
+    nullable: true,
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  })
+  @JoinColumn({
+    name: 'cover_image_asset_id',
+    foreignKeyConstraintName: 'FK_posts_cover_image_asset',
+  })
+  coverImageAsset!: MediaAsset | null;
 
   @Column({ name: 'published_at', type: 'timestamptz', nullable: true })
   publishedAt?: Date;

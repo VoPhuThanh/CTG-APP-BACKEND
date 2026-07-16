@@ -4,6 +4,7 @@ import { PaginationMetaDto } from '@/cores/pagination/pagination-meta.dto';
 import { PaginatedResponseDto } from '@/cores/pagination/pagination-response.dto';
 
 import { ServiceSkillLevel } from '../enums/service.enum';
+import { PublicMediaAssetSummaryResponseDto } from '../../media-assets/dtos/media-asset.dto';
 
 export class PublicServiceVariantResponseDto {
   @ApiProperty()
@@ -33,8 +34,14 @@ export class PublicServiceVariantResponseDto {
   @ApiPropertyOptional({ nullable: true })
   descriptionVi!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
   imageUrl!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: PublicMediaAssetSummaryResponseDto,
+  })
+  imageAsset!: PublicMediaAssetSummaryResponseDto | null;
 
   @ApiPropertyOptional({ nullable: true })
   durationMinutes!: number | null;
@@ -80,8 +87,14 @@ export class PublicServiceResponseDto {
   @ApiPropertyOptional({ nullable: true })
   descriptionVi!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
   imageUrl!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: PublicMediaAssetSummaryResponseDto,
+  })
+  imageAsset!: PublicMediaAssetSummaryResponseDto | null;
 
   @ApiProperty()
   displayOrder!: number;
@@ -160,14 +173,32 @@ export class PublicServiceVariantDetailResponseDto {
   @ApiPropertyOptional({ nullable: true })
   descriptionVi!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
   imageUrl!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({
+    nullable: true,
+    type: PublicMediaAssetSummaryResponseDto,
+  })
+  imageAsset!: PublicMediaAssetSummaryResponseDto | null;
+
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
   bannerImageUrl!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({
+    nullable: true,
+    type: PublicMediaAssetSummaryResponseDto,
+  })
+  bannerImageAsset!: PublicMediaAssetSummaryResponseDto | null;
+
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
   modelImageUrl!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: PublicMediaAssetSummaryResponseDto,
+  })
+  modelImageAsset!: PublicMediaAssetSummaryResponseDto | null;
 
   @ApiPropertyOptional({ nullable: true })
   durationMinutes!: number | null;

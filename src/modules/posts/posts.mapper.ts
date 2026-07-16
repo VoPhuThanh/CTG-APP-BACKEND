@@ -10,6 +10,10 @@ import {
 } from './dtos/post.dto';
 import { PostCategory } from './entities/post-category.entity';
 import { Post } from './entities/post.entity';
+import {
+  mapMediaAssetToPublicSummary,
+  mapMediaAssetToSummary,
+} from '../media-assets/media-assets.mapper';
 
 function mapCategoryToSummary(category: PostCategory): PostCategorySummaryDto {
   const dto = new PostCategorySummaryDto();
@@ -80,7 +84,11 @@ export function mapPostToResponse(post: Post): PostResponseDto {
   dto.shortDescriptionVi = post.shortDescriptionVi ?? null;
   dto.contentUrlEn = post.contentUrlEn ?? null;
   dto.contentUrlVi = post.contentUrlVi ?? null;
+  dto.contentHtmlEn = post.contentHtmlEn ?? null;
+  dto.contentHtmlVi = post.contentHtmlVi ?? null;
   dto.coverImageUrl = post.coverImageUrl ?? null;
+  dto.coverImageAssetId = post.coverImageAssetId ?? null;
+  dto.coverImageAsset = mapMediaAssetToSummary(post.coverImageAsset);
   dto.publishedAt = post.publishedAt ?? null;
   dto.status = post.status;
   dto.isFeatured = post.isFeatured;
@@ -106,7 +114,10 @@ export function mapPostToPublicResponse(post: Post): PublicPostResponseDto {
   dto.shortDescriptionVi = post.shortDescriptionVi ?? null;
   dto.contentUrlEn = post.contentUrlEn ?? null;
   dto.contentUrlVi = post.contentUrlVi ?? null;
+  dto.contentHtmlEn = post.contentHtmlEn ?? null;
+  dto.contentHtmlVi = post.contentHtmlVi ?? null;
   dto.coverImageUrl = post.coverImageUrl ?? null;
+  dto.coverImageAsset = mapMediaAssetToPublicSummary(post.coverImageAsset);
   dto.publishedAt = post.publishedAt ?? null;
   dto.isFeatured = post.isFeatured;
 

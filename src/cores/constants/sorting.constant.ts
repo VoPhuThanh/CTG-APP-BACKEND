@@ -109,6 +109,10 @@ export const CUSTOMER_LEAD_SORT_FIELDS = {
 
 export const MEDIA_ASSET_SORT_FIELDS = {
   name: 'name',
+  storageProvider: 'storageProvider',
+  storageKey: 'storageKey',
+  originalFilename: 'originalFilename',
+  checksum: 'checksum',
   type: 'type',
   usage: 'usage',
   mimeType: 'mimeType',

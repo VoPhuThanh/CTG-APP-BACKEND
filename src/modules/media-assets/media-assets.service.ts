@@ -7,8 +7,19 @@ import {
   getPaginationSkip,
   getPaginationTake,
 } from '@/cores/pagination/pagination-utils';
-import { Injectable } from '@nestjs/common';
+import {
+  SUPPORTED_IMAGE_MIME_TYPES,
+  type MediaStorageConfig,
+  type SupportedImageMimeType,
+} from '@/configs/media-storage.config';
+import { MEDIA_STORAGE_CONFIG } from '@/cores/storage/storage.module';
+import {
+  STORAGE_PROVIDER,
+  type StorageProvider,
+} from '@/cores/storage/storage-provider.interface';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { createHash, randomUUID } from 'node:crypto';
 import type { Repository } from 'typeorm';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
@@ -18,24 +29,42 @@ import type {
   MediaAssetResponseDto,
   PublicMediaAssetResponseDto,
 } from './dtos/media-asset.dto';
+import type { MediaAssetUsageReportResponseDto } from './dtos/media-asset-usage.dto';
 import type { MediaAssetQueryDto } from './dtos/media-asset-query.dto';
 import type { MediaAssetUpdateDto } from './dtos/update-media-asset.dto';
+import type { MediaAssetUploadDto } from './dtos/upload-media-asset.dto';
 import { MediaAsset } from './entities/media-asset.entity';
 import { MediaAssetType, MediaAssetUsage } from './enums/media-asset.enum';
+import type { UploadedImageFile } from './interfaces/uploaded-image-file.interface';
 import {
   mapMediaAssetToResponse,
   mapMediaAssetsToPublicResponses,
   mapMediaAssetsToResponses,
 } from './media-assets.mapper';
+import { MediaAssetReferencesService } from './media-asset-references.service';
+import {
+  inspectImage,
+  normalizeDeclaredImageMimeType,
+} from './utils/image-metadata.util';
 
 @Injectable()
 export class MediaAssetsService {
+  private readonly logger = new Logger(MediaAssetsService.name);
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
 
     @InjectRepository(MediaAsset)
     private readonly mediaAssetRepository: Repository<MediaAsset>,
+
+    @Inject(STORAGE_PROVIDER)
+    private readonly storageProvider: StorageProvider,
+
+    @Inject(MEDIA_STORAGE_CONFIG)
+    private readonly storageConfig: MediaStorageConfig,
+
+    private readonly mediaAssetReferencesService: MediaAssetReferencesService,
   ) {}
 
   async findPublic(
@@ -114,6 +143,10 @@ export class MediaAssetsService {
           OR asset.descriptionEn ILIKE :search
           OR asset.descriptionVi ILIKE :search
           OR asset.url ILIKE :search
+          OR asset.storageProvider ILIKE :search
+          OR asset.storageKey ILIKE :search
+          OR asset.originalFilename ILIKE :search
+          OR asset.checksum ILIKE :search
           OR asset.mimeType ILIKE :search
         )`,
         {
@@ -156,6 +189,10 @@ export class MediaAssetsService {
     return mapMediaAssetToResponse(asset);
   }
 
+  getUsage(id: string): Promise<MediaAssetUsageReportResponseDto> {
+    return this.mediaAssetReferencesService.getUsageReport(id);
+  }
+
   async create(
     dto: MediaAssetCreateDto,
     currentUser: AuthenticatedUser,
@@ -169,6 +206,10 @@ export class MediaAssetsService {
       descriptionEn: dto.descriptionEn,
       descriptionVi: dto.descriptionVi,
       url: dto.url,
+      storageProvider: null,
+      storageKey: null,
+      originalFilename: null,
+      checksum: null,
       type: dto.type ?? MediaAssetType.IMAGE,
       usage: dto.usage ?? MediaAssetUsage.GENERAL,
       mimeType: dto.mimeType,
@@ -186,6 +227,104 @@ export class MediaAssetsService {
     return this.findOne(asset.id);
   }
 
+  async uploadImage(
+    file: UploadedImageFile | undefined,
+    dto: MediaAssetUploadDto,
+    currentUser: AuthenticatedUser,
+  ): Promise<MediaAssetResponseDto> {
+    const creator = await this.findCurrentUserOrThrow(currentUser);
+
+    if (!file?.buffer) {
+      throw AppError.badRequest(AppErrorCode.MEDIA_ASSET_FILE_REQUIRED);
+    }
+
+    if (
+      file.size > this.storageConfig.maxFileSizeBytes ||
+      file.buffer.length > this.storageConfig.maxFileSizeBytes
+    ) {
+      throw AppError.payloadTooLarge(AppErrorCode.MEDIA_ASSET_FILE_TOO_LARGE);
+    }
+
+    const declaredMimeType = normalizeDeclaredImageMimeType(file.mimetype);
+    if (
+      !SUPPORTED_IMAGE_MIME_TYPES.includes(
+        declaredMimeType as SupportedImageMimeType,
+      )
+    ) {
+      throw AppError.unsupportedMediaType(
+        AppErrorCode.MEDIA_ASSET_UNSUPPORTED_IMAGE_TYPE,
+      );
+    }
+
+    let imageMetadata: ReturnType<typeof inspectImage>;
+    try {
+      imageMetadata = inspectImage(file.buffer);
+    } catch {
+      throw AppError.badRequest(AppErrorCode.MEDIA_ASSET_INVALID_IMAGE);
+    }
+
+    if (!this.storageConfig.allowedMimeTypes.has(imageMetadata.mimeType)) {
+      throw AppError.unsupportedMediaType(
+        AppErrorCode.MEDIA_ASSET_UNSUPPORTED_IMAGE_TYPE,
+      );
+    }
+
+    if (declaredMimeType !== imageMetadata.mimeType) {
+      throw AppError.badRequest(AppErrorCode.MEDIA_ASSET_MIME_MISMATCH);
+    }
+
+    const storageKey = this.generateStorageKey(imageMetadata.extension);
+    const checksum = createHash('sha256').update(file.buffer).digest('hex');
+    const originalFilename = this.sanitizeOriginalFilename(
+      file.originalname,
+      imageMetadata.extension,
+    );
+
+    let storedObject: Awaited<ReturnType<StorageProvider['write']>>;
+    try {
+      storedObject = await this.storageProvider.write({
+        key: storageKey,
+        body: file.buffer,
+        contentType: imageMetadata.mimeType,
+      });
+    } catch (error) {
+      await this.compensateStorageDelete(storageKey);
+      throw error;
+    }
+
+    let savedAsset: MediaAsset;
+    try {
+      const asset = this.mediaAssetRepository.create({
+        name: dto.name,
+        altTextEn: dto.altTextEn,
+        altTextVi: dto.altTextVi,
+        descriptionEn: dto.descriptionEn,
+        descriptionVi: dto.descriptionVi,
+        url: storedObject.publicUrl,
+        storageProvider: storedObject.provider,
+        storageKey: storedObject.key,
+        originalFilename,
+        checksum,
+        type: MediaAssetType.IMAGE,
+        usage: dto.usage ?? MediaAssetUsage.GENERAL,
+        mimeType: imageMetadata.mimeType,
+        width: imageMetadata.width,
+        height: imageMetadata.height,
+        fileSizeBytes: file.buffer.length,
+        isActive: dto.isActive ?? true,
+        displayOrder: dto.displayOrder ?? 0,
+        createdBy: creator,
+        updatedBy: creator,
+      });
+      savedAsset = await this.mediaAssetRepository.save(asset);
+    } catch (error) {
+      await this.compensateStorageDelete(storedObject.key);
+      throw error;
+    }
+
+    return mapMediaAssetToResponse(savedAsset);
+  }
+
   async update(
     id: string,
     dto: MediaAssetUpdateDto,
@@ -193,6 +332,20 @@ export class MediaAssetsService {
   ): Promise<MediaAssetResponseDto> {
     const updater = await this.findCurrentUserOrThrow(currentUser);
     const asset = await this.findEntityById(id);
+
+    if (
+      asset.storageKey &&
+      (dto.url !== undefined ||
+        dto.type !== undefined ||
+        dto.mimeType !== undefined ||
+        dto.width !== undefined ||
+        dto.height !== undefined ||
+        dto.fileSizeBytes !== undefined)
+    ) {
+      throw AppError.badRequest(
+        AppErrorCode.MEDIA_ASSET_MANAGED_FILE_IMMUTABLE,
+      );
+    }
 
     if (dto.name !== undefined) asset.name = dto.name;
     if (dto.altTextEn !== undefined) asset.altTextEn = dto.altTextEn;
@@ -226,9 +379,30 @@ export class MediaAssetsService {
 
   async delete(id: string, currentUser: AuthenticatedUser): Promise<void> {
     const deleter = await this.findCurrentUserOrThrow(currentUser);
-    const asset = await this.findEntityById(id);
 
     await this.mediaAssetRepository.manager.transaction(async (manager) => {
+      const asset = await manager.getRepository(MediaAsset).findOne({
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!asset) {
+        throw AppError.notFound(AppErrorCode.MEDIA_ASSET_NOT_FOUND);
+      }
+
+      const references =
+        await this.mediaAssetReferencesService.findUsageReferences(id, manager);
+
+      if (references.length > 0) {
+        throw AppError.conflict(AppErrorCode.MEDIA_ASSET_IN_USE, {
+          assetId: id,
+          canDelete: false,
+          totalReferences: references.length,
+          references,
+          usageUrl: `/media-assets/${id}/usage`,
+        });
+      }
+
       await manager.update(MediaAsset, asset.id, {
         deletedBy: deleter,
       });
@@ -273,5 +447,41 @@ export class MediaAssetsService {
     }
 
     return user;
+  }
+
+  private generateStorageKey(extension: string): string {
+    const now = new Date();
+    const year = String(now.getUTCFullYear());
+    const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+
+    return `images/${year}/${month}/${randomUUID()}.${extension}`;
+  }
+
+  private sanitizeOriginalFilename(
+    originalFilename: string,
+    extension: string,
+  ): string {
+    const basename = originalFilename.split(/[\\/]/).at(-1) ?? '';
+    const sanitized = [...basename]
+      .filter((character) => {
+        const codePoint = character.codePointAt(0) ?? 0;
+        return codePoint > 31 && codePoint !== 127;
+      })
+      .join('')
+      .trim()
+      .slice(0, 255);
+
+    return sanitized || `upload.${extension}`;
+  }
+
+  private async compensateStorageDelete(storageKey: string): Promise<void> {
+    try {
+      await this.storageProvider.delete(storageKey);
+    } catch (cleanupError) {
+      this.logger.error(
+        `Failed to delete storage object after upload failure: ${storageKey}`,
+        cleanupError instanceof Error ? cleanupError.stack : undefined,
+      );
+    }
   }
 }

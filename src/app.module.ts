@@ -17,11 +17,17 @@ import { BannersModule } from './modules/banners/banners.module';
 import { CustomerLeadsModule } from './modules/customer-leads/customer-leads.module';
 import { SiteSettingsModule } from './modules/site-settings/site-settings.module';
 import { MediaAssetsModule } from './modules/media-assets/media-assets.module';
+import { StorageModule } from './cores/storage/storage.module';
+import { validateEnvironment } from './configs/media-storage.config';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      validate: validateEnvironment,
     }),
+
+    StorageModule,
 
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],

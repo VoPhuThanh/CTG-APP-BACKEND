@@ -8,6 +8,10 @@ import {
   PublicServiceVariantResponseDto,
   PublicServiceResponseDto,
 } from './dtos/public-service.dto';
+import {
+  mapMediaAssetToPublicSummary,
+  mapMediaAssetToSummary,
+} from '../media-assets/media-assets.mapper';
 
 function sortClubs<
   T extends { displayOrder: number; nameEn: string; id: string },
@@ -35,8 +39,14 @@ export function mapServiceVariantToResponse(
   dto.descriptionEn = variant.descriptionEn ?? null;
   dto.descriptionVi = variant.descriptionVi ?? null;
   dto.imageUrl = variant.imageUrl ?? null;
+  dto.imageAssetId = variant.imageAssetId ?? null;
+  dto.imageAsset = mapMediaAssetToSummary(variant.imageAsset);
   dto.bannerImageUrl = variant.bannerImageUrl ?? null;
+  dto.bannerImageAssetId = variant.bannerImageAssetId ?? null;
+  dto.bannerImageAsset = mapMediaAssetToSummary(variant.bannerImageAsset);
   dto.modelImageUrl = variant.modelImageUrl ?? null;
+  dto.modelImageAssetId = variant.modelImageAssetId ?? null;
+  dto.modelImageAsset = mapMediaAssetToSummary(variant.modelImageAsset);
   dto.durationMinutes = variant.durationMinutes ?? null;
   dto.caloriesBurnedMin = variant.caloriesBurnedMin ?? null;
   dto.caloriesBurnedMax = variant.caloriesBurnedMax ?? null;
@@ -77,6 +87,8 @@ export function mapServiceToResponse(service: Service): ServiceResponseDto {
   dto.descriptionEn = service.descriptionEn ?? null;
   dto.descriptionVi = service.descriptionVi ?? null;
   dto.imageUrl = service.imageUrl ?? null;
+  dto.imageAssetId = service.imageAssetId ?? null;
+  dto.imageAsset = mapMediaAssetToSummary(service.imageAsset);
   dto.status = service.status;
   dto.displayOrder = service.displayOrder;
   dto.isFeatured = service.isFeatured;
@@ -116,6 +128,7 @@ export function mapServiceVariantToPublicResponse(
   dto.descriptionEn = variant.descriptionEn ?? null;
   dto.descriptionVi = variant.descriptionVi ?? null;
   dto.imageUrl = variant.imageUrl ?? null;
+  dto.imageAsset = mapMediaAssetToPublicSummary(variant.imageAsset);
   dto.durationMinutes = variant.durationMinutes ?? null;
   dto.caloriesBurnedMin = variant.caloriesBurnedMin ?? null;
   dto.caloriesBurnedMax = variant.caloriesBurnedMax ?? null;
@@ -147,8 +160,11 @@ export function mapServiceVariantToPublicDetailResponse(
   dto.descriptionEn = variant.descriptionEn ?? null;
   dto.descriptionVi = variant.descriptionVi ?? null;
   dto.imageUrl = variant.imageUrl ?? null;
+  dto.imageAsset = mapMediaAssetToPublicSummary(variant.imageAsset);
   dto.bannerImageUrl = variant.bannerImageUrl ?? null;
+  dto.bannerImageAsset = mapMediaAssetToPublicSummary(variant.bannerImageAsset);
   dto.modelImageUrl = variant.modelImageUrl ?? null;
+  dto.modelImageAsset = mapMediaAssetToPublicSummary(variant.modelImageAsset);
   dto.durationMinutes = variant.durationMinutes ?? null;
   dto.caloriesBurnedMin = variant.caloriesBurnedMin ?? null;
   dto.caloriesBurnedMax = variant.caloriesBurnedMax ?? null;
@@ -186,6 +202,7 @@ export function mapServiceToPublicResponse(
   dto.descriptionEn = service.descriptionEn ?? null;
   dto.descriptionVi = service.descriptionVi ?? null;
   dto.imageUrl = service.imageUrl ?? null;
+  dto.imageAsset = mapMediaAssetToPublicSummary(service.imageAsset);
   dto.displayOrder = service.displayOrder;
   dto.isFeatured = service.isFeatured;
   dto.variants = mapServiceVariantsToPublicResponses(service.variants ?? []);

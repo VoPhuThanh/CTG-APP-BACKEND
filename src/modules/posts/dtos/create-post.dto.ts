@@ -71,10 +71,35 @@ export class PostCreateDto {
   @IsString()
   contentUrlVi?: string;
 
+  @ApiPropertyOptional({
+    description: 'Database-stored English post body HTML.',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  contentHtmlEn?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Database-stored Vietnamese post body HTML.',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  contentHtmlVi?: string | null;
+
   @ApiPropertyOptional({ example: 'https://example.com/post-cover.jpg' })
   @IsOptional()
   @IsString()
   coverImageUrl?: string;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description: 'Managed media asset for the post cover image.',
+  })
+  @IsOptional()
+  @IsUUID()
+  coverImageAssetId?: string | null;
 
   @ApiPropertyOptional({
     example: '2026-07-09T00:00:00.000Z',

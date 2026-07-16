@@ -3,6 +3,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ServiceStatus } from '../enums/service.enum';
 import { ServiceVariantResponseDto } from './service-variant.dto';
 import { ClubStatus } from '../../clubs/enums/club.enum';
+import { MediaAssetSummaryResponseDto } from '../../media-assets/dtos/media-asset.dto';
 
 export class ServiceClubSummaryDto {
   @ApiProperty()
@@ -46,8 +47,17 @@ export class ServiceResponseDto {
   @ApiPropertyOptional({ nullable: true })
   descriptionVi!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
   imageUrl!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, format: 'uuid' })
+  imageAssetId!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: MediaAssetSummaryResponseDto,
+  })
+  imageAsset!: MediaAssetSummaryResponseDto | null;
 
   @ApiProperty({ enum: ServiceStatus })
   status!: ServiceStatus;

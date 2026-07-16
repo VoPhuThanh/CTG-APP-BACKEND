@@ -693,22 +693,29 @@ export class MembershipsService {
   async findPublicLevels(): Promise<PublicMembershipLevelResponseDto[]> {
     const levels = await this.levelRepository
       .createQueryBuilder('level')
-      .leftJoinAndSelect('level.plans', 'plans')
-      .leftJoinAndSelect('level.benefits', 'benefits')
-      .where('level.status = :status', {
-        status: MembershipStatus.PUBLISHED,
-      })
-      .andWhere('(plans.status = :planStatus OR plans.id IS NULL)', {
+      .leftJoinAndSelect('level.plans', 'plan', 'plan.status = :planStatus', {
         planStatus: MembershipStatus.PUBLISHED,
       })
-      .andWhere('(benefits.isActive = :benefitActive OR benefits.id IS NULL)', {
-        benefitActive: true,
+      .leftJoinAndSelect(
+        'level.benefits',
+        'benefit',
+        'benefit.isActive = :benefitActive',
+        {
+          benefitActive: true,
+        },
+      )
+      .where('level.status = :levelStatus', {
+        levelStatus: MembershipStatus.PUBLISHED,
       })
       .orderBy('level.displayOrder', 'ASC')
-      .addOrderBy('plans.displayOrder', 'ASC')
-      .addOrderBy('benefits.displayOrder', 'ASC')
+      .addOrderBy('level.id', 'ASC')
+      .addOrderBy('plan.displayOrder', 'ASC')
+      .addOrderBy('plan.durationMonths', 'ASC')
+      .addOrderBy('plan.id', 'ASC')
+      .addOrderBy('benefit.displayOrder', 'ASC')
+      .addOrderBy('benefit.nameEn', 'ASC')
+      .addOrderBy('benefit.id', 'ASC')
       .getMany();
-
     return mapMembershipLevelsToPublicResponses(levels);
   }
   async findPublicFeaturedLevels(): Promise<

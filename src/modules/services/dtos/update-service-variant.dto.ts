@@ -83,6 +83,33 @@ export class ServiceVariantUpdateDto {
   @IsString()
   modelImageUrl?: string | null;
 
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description: 'Managed media asset for the variant card image.',
+  })
+  @IsOptional()
+  @IsUUID()
+  imageAssetId?: string | null;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description: 'Managed media asset for the detail banner image.',
+  })
+  @IsOptional()
+  @IsUUID()
+  bannerImageAssetId?: string | null;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description: 'Managed media asset for the model/cutout image.',
+  })
+  @IsOptional()
+  @IsUUID()
+  modelImageAssetId?: string | null;
+
   @ApiPropertyOptional({ example: 60 })
   @IsOptional()
   @IsInt()

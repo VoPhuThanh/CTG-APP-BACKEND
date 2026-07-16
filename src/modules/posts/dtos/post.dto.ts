@@ -1,6 +1,10 @@
 import { MetadataResponseDto } from '@/cores/dtos/metadata.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PostStatus } from '../enums/post.enum';
+import {
+  MediaAssetSummaryResponseDto,
+  PublicMediaAssetSummaryResponseDto,
+} from '../../media-assets/dtos/media-asset.dto';
 
 export class PostCategorySummaryDto {
   @ApiProperty()
@@ -41,14 +45,29 @@ export class PostResponseDto {
   @ApiPropertyOptional({ nullable: true })
   shortDescriptionVi!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
   contentUrlEn!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
   contentUrlVi!: string | null;
 
   @ApiPropertyOptional({ nullable: true })
+  contentHtmlEn!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  contentHtmlVi!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
   coverImageUrl!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, format: 'uuid' })
+  coverImageAssetId!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: MediaAssetSummaryResponseDto,
+  })
+  coverImageAsset!: MediaAssetSummaryResponseDto | null;
 
   @ApiPropertyOptional({ nullable: true })
   publishedAt!: Date | null;
@@ -88,14 +107,26 @@ export class PublicPostResponseDto {
   @ApiPropertyOptional({ nullable: true })
   shortDescriptionVi!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
   contentUrlEn!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
   contentUrlVi!: string | null;
 
   @ApiPropertyOptional({ nullable: true })
+  contentHtmlEn!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  contentHtmlVi!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
   coverImageUrl!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: PublicMediaAssetSummaryResponseDto,
+  })
+  coverImageAsset!: PublicMediaAssetSummaryResponseDto | null;
 
   @ApiPropertyOptional({ nullable: true })
   publishedAt!: Date | null;

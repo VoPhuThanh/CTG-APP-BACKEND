@@ -49,6 +49,23 @@ export const AppErrorMessage: Record<AppErrorCode, string> = {
     'Customer consent is required before submitting the form.',
 
   [AppErrorCode.MEDIA_ASSET_NOT_FOUND]: 'Media asset not found.',
+  [AppErrorCode.MEDIA_ASSET_NOT_IMAGE]:
+    'The selected media asset must be an image.',
+  [AppErrorCode.MEDIA_ASSET_INACTIVE]:
+    'Inactive media assets cannot be selected for a new placement.',
+  [AppErrorCode.MEDIA_ASSET_IN_USE]:
+    'Media asset cannot be deleted while it is referenced.',
+  [AppErrorCode.MEDIA_ASSET_FILE_REQUIRED]: 'An image file is required.',
+  [AppErrorCode.MEDIA_ASSET_FILE_TOO_LARGE]:
+    'The image exceeds the configured file-size limit.',
+  [AppErrorCode.MEDIA_ASSET_UNSUPPORTED_IMAGE_TYPE]:
+    'The image format is not supported.',
+  [AppErrorCode.MEDIA_ASSET_INVALID_IMAGE]:
+    'The uploaded file is not a valid supported raster image.',
+  [AppErrorCode.MEDIA_ASSET_MIME_MISMATCH]:
+    'The declared MIME type does not match the uploaded image content.',
+  [AppErrorCode.MEDIA_ASSET_MANAGED_FILE_IMMUTABLE]:
+    'Managed file metadata cannot be changed through the metadata update endpoint.',
 
   [AppErrorCode.SITE_SETTING_NOT_FOUND]: 'Site setting not found.',
   [AppErrorCode.SITE_SETTING_KEY_ALREADY_EXISTS]:

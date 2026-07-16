@@ -1,6 +1,8 @@
 import { mapMetadataToResponse } from '@/cores/mappers/metadata.mapper';
 import {
+  MediaAssetSummaryResponseDto,
   MediaAssetResponseDto,
+  PublicMediaAssetSummaryResponseDto,
   PublicMediaAssetResponseDto,
 } from './dtos/media-asset.dto';
 import { MediaAsset } from './entities/media-asset.entity';
@@ -17,6 +19,10 @@ export function mapMediaAssetToResponse(
   dto.descriptionEn = asset.descriptionEn ?? null;
   dto.descriptionVi = asset.descriptionVi ?? null;
   dto.url = asset.url;
+  dto.storageProvider = asset.storageProvider ?? null;
+  dto.storageKey = asset.storageKey ?? null;
+  dto.originalFilename = asset.originalFilename ?? null;
+  dto.checksum = asset.checksum ?? null;
   dto.type = asset.type;
   dto.usage = asset.usage;
   dto.mimeType = asset.mimeType ?? null;
@@ -59,4 +65,42 @@ export function mapMediaAssetsToPublicResponses(
   assets: MediaAsset[],
 ): PublicMediaAssetResponseDto[] {
   return assets.map(mapMediaAssetToPublicResponse);
+}
+
+export function mapMediaAssetToSummary(
+  asset?: MediaAsset | null,
+): MediaAssetSummaryResponseDto | null {
+  if (!asset) return null;
+
+  const dto = new MediaAssetSummaryResponseDto();
+
+  dto.id = asset.id;
+  dto.name = asset.name;
+  dto.url = asset.url;
+  dto.altTextEn = asset.altTextEn ?? null;
+  dto.altTextVi = asset.altTextVi ?? null;
+  dto.width = asset.width ?? null;
+  dto.height = asset.height ?? null;
+  dto.mimeType = asset.mimeType ?? null;
+  dto.isActive = asset.isActive;
+
+  return dto;
+}
+
+export function mapMediaAssetToPublicSummary(
+  asset?: MediaAsset | null,
+): PublicMediaAssetSummaryResponseDto | null {
+  if (!asset) return null;
+
+  const dto = new PublicMediaAssetSummaryResponseDto();
+
+  dto.id = asset.id;
+  dto.url = asset.url;
+  dto.altTextEn = asset.altTextEn ?? null;
+  dto.altTextVi = asset.altTextVi ?? null;
+  dto.width = asset.width ?? null;
+  dto.height = asset.height ?? null;
+  dto.mimeType = asset.mimeType ?? null;
+
+  return dto;
 }

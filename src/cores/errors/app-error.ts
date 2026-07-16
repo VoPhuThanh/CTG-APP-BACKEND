@@ -2,16 +2,23 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
+  PayloadTooLargeException,
   UnauthorizedException,
+  UnsupportedMediaTypeException,
 } from '@nestjs/common';
 import { AppErrorCode } from './app-error-code';
 import { AppErrorMessage } from './app-error-message';
 
-function buildErrorBody(statusCode: number, code: AppErrorCode) {
+function buildErrorBody(
+  statusCode: number,
+  code: AppErrorCode,
+  details?: unknown,
+) {
   return {
     statusCode,
     code,
     message: AppErrorMessage[code],
+    ...(details === undefined ? {} : { details }),
   };
 }
 
@@ -28,7 +35,15 @@ export const AppError = {
     return new NotFoundException(buildErrorBody(404, code));
   },
 
-  conflict(code: AppErrorCode) {
-    return new ConflictException(buildErrorBody(409, code));
+  conflict(code: AppErrorCode, details?: unknown) {
+    return new ConflictException(buildErrorBody(409, code, details));
+  },
+
+  payloadTooLarge(code: AppErrorCode) {
+    return new PayloadTooLargeException(buildErrorBody(413, code));
+  },
+
+  unsupportedMediaType(code: AppErrorCode) {
+    return new UnsupportedMediaTypeException(buildErrorBody(415, code));
   },
 };

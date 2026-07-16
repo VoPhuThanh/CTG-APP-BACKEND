@@ -11,6 +11,9 @@ import {
 import { MediaAssetType, MediaAssetUsage } from '../enums/media-asset.enum';
 
 @Entity('media_assets')
+@Index('IDX_media_assets_deleted_at', ['deletedAt'], {
+  where: '"deletedAt" IS NOT NULL',
+})
 export class MediaAsset extends BaseEntityCore {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -33,6 +36,35 @@ export class MediaAsset extends BaseEntityCore {
 
   @Column({ type: 'text' })
   url!: string;
+
+  @Column({
+    name: 'storage_provider',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  storageProvider!: string | null;
+
+  @Index('UQ_media_assets_storage_key', { unique: true })
+  @Column({
+    name: 'storage_key',
+    type: 'varchar',
+    length: 1024,
+    nullable: true,
+  })
+  storageKey!: string | null;
+
+  @Column({
+    name: 'original_filename',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  originalFilename!: string | null;
+
+  @Index('IDX_media_assets_checksum')
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  checksum!: string | null;
 
   @Column({
     type: 'enum',

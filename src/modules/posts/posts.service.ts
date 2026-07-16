@@ -13,10 +13,14 @@ import {
 import { generateSlug } from '@/cores/utils/slug.util';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { Repository } from 'typeorm';
+import type { EntityManager, Repository } from 'typeorm';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
 import { User } from '../users/entities/user.entity';
+import type { MediaAsset } from '../media-assets/entities/media-asset.entity';
+import { MediaAssetReferenceSlot } from '../media-assets/enums/media-asset-reference.enum';
+import { MediaAssetUsage } from '../media-assets/enums/media-asset.enum';
+import { MediaAssetReferencesService } from '../media-assets/media-asset-references.service';
 import type { PostCategoryCreateDto } from './dtos/create-post-category.dto';
 import type { PostCreateDto } from './dtos/create-post.dto';
 import type { PostCategoryQueryDto } from './dtos/post-category-query.dto';
@@ -52,6 +56,8 @@ export class PostsService {
 
     @InjectRepository(Post)
     private readonly postRepository: Repository<Post>,
+
+    private readonly mediaAssetReferencesService: MediaAssetReferencesService,
   ) {}
 
   async findPublicCategories(): Promise<PublicPostCategoryResponseDto[]> {
@@ -75,6 +81,7 @@ export class PostsService {
     const queryBuilder = this.postRepository
       .createQueryBuilder('post')
       .leftJoinAndSelect('post.category', 'category')
+      .leftJoinAndSelect('post.coverImageAsset', 'coverImageAsset')
       .where('post.status = :status', {
         status: PostStatus.PUBLISHED,
       })
@@ -127,6 +134,7 @@ export class PostsService {
     const post = await this.postRepository
       .createQueryBuilder('post')
       .leftJoinAndSelect('post.category', 'category')
+      .leftJoinAndSelect('post.coverImageAsset', 'coverImageAsset')
       .where('post.slug = :slug', { slug })
       .andWhere('post.status = :status', {
         status: PostStatus.PUBLISHED,
@@ -308,6 +316,7 @@ export class PostsService {
     const queryBuilder = this.postRepository
       .createQueryBuilder('post')
       .leftJoinAndSelect('post.category', 'category')
+      .leftJoinAndSelect('post.coverImageAsset', 'coverImageAsset')
       .leftJoinAndSelect('post.createdBy', 'createdBy')
       .leftJoinAndSelect('post.updatedBy', 'updatedBy');
 
@@ -377,28 +386,41 @@ export class PostsService {
     const slug = dto.slug ?? generateSlug(dto.titleEn);
 
     await this.ensurePostSlugIsAvailable(slug);
+    let createdPostId = '';
 
-    const post = this.postRepository.create({
-      titleEn: dto.titleEn,
-      titleVi: dto.titleVi,
-      slug,
-      category,
-      shortDescriptionEn: dto.shortDescriptionEn,
-      shortDescriptionVi: dto.shortDescriptionVi,
-      contentUrlEn: dto.contentUrlEn,
-      contentUrlVi: dto.contentUrlVi,
-      coverImageUrl: dto.coverImageUrl,
-      publishedAt: this.toOptionalDate(dto.publishedAt),
-      status: dto.status ?? PostStatus.DRAFT,
-      isFeatured: dto.isFeatured ?? false,
-      displayOrder: dto.displayOrder ?? 0,
-      createdBy: creator,
-      updatedBy: creator,
+    await this.postRepository.manager.transaction(async (manager) => {
+      const coverImageAsset = await this.findImageAssetByIdOrThrow(
+        dto.coverImageAssetId,
+        MediaAssetReferenceSlot.POST_COVER_IMAGE,
+        manager,
+      );
+      const postRepository = manager.getRepository(Post);
+      const post = postRepository.create({
+        titleEn: dto.titleEn,
+        titleVi: dto.titleVi,
+        slug,
+        category,
+        shortDescriptionEn: dto.shortDescriptionEn,
+        shortDescriptionVi: dto.shortDescriptionVi,
+        contentUrlEn: dto.contentUrlEn,
+        contentUrlVi: dto.contentUrlVi,
+        contentHtmlEn: dto.contentHtmlEn,
+        contentHtmlVi: dto.contentHtmlVi,
+        coverImageUrl: dto.coverImageUrl,
+        coverImageAsset,
+        publishedAt: this.toOptionalDate(dto.publishedAt),
+        status: dto.status ?? PostStatus.DRAFT,
+        isFeatured: dto.isFeatured ?? false,
+        displayOrder: dto.displayOrder ?? 0,
+        createdBy: creator,
+        updatedBy: creator,
+      });
+
+      const savedPost = await postRepository.save(post);
+      createdPostId = savedPost.id;
     });
 
-    await this.postRepository.save(post);
-
-    return this.findPost(post.id);
+    return this.findPost(createdPostId);
   }
 
   async updatePost(
@@ -428,6 +450,8 @@ export class PostsService {
     }
     if (dto.contentUrlEn !== undefined) post.contentUrlEn = dto.contentUrlEn;
     if (dto.contentUrlVi !== undefined) post.contentUrlVi = dto.contentUrlVi;
+    if (dto.contentHtmlEn !== undefined) post.contentHtmlEn = dto.contentHtmlEn;
+    if (dto.contentHtmlVi !== undefined) post.contentHtmlVi = dto.contentHtmlVi;
     if (dto.coverImageUrl !== undefined) {
       post.coverImageUrl = dto.coverImageUrl;
     }
@@ -440,7 +464,17 @@ export class PostsService {
 
     post.updatedBy = updater;
 
-    await this.postRepository.save(post);
+    await this.postRepository.manager.transaction(async (manager) => {
+      if (dto.coverImageAssetId !== undefined) {
+        post.coverImageAsset = await this.findImageAssetByIdOrThrow(
+          dto.coverImageAssetId,
+          MediaAssetReferenceSlot.POST_COVER_IMAGE,
+          manager,
+        );
+      }
+
+      await manager.getRepository(Post).save(post);
+    });
 
     return this.findPost(post.id);
   }
@@ -508,6 +542,7 @@ export class PostsService {
       },
       relations: {
         category: true,
+        coverImageAsset: true,
         createdBy: true,
         updatedBy: true,
       },
@@ -538,6 +573,21 @@ export class PostsService {
     }
 
     return user;
+  }
+
+  private async findImageAssetByIdOrThrow(
+    id: string | null | undefined,
+    slot: MediaAssetReferenceSlot,
+    manager?: EntityManager,
+  ): Promise<MediaAsset | null> {
+    const result =
+      await this.mediaAssetReferencesService.validateImageSelection(id, {
+        manager,
+        slot,
+        compatibleUsages: [MediaAssetUsage.GENERAL, MediaAssetUsage.POST],
+      });
+
+    return result.asset;
   }
 
   private async ensureCategorySlugIsAvailable(slug: string): Promise<void> {

@@ -24,6 +24,18 @@ export class MediaAssetResponseDto {
   @ApiProperty()
   url!: string;
 
+  @ApiPropertyOptional({ nullable: true })
+  storageProvider!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  storageKey!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  originalFilename!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  checksum!: string | null;
+
   @ApiProperty({ enum: MediaAssetType })
   type!: MediaAssetType;
 
@@ -82,4 +94,56 @@ export class PublicMediaAssetResponseDto {
 
   @ApiPropertyOptional({ nullable: true })
   height!: number | null;
+}
+
+export class MediaAssetSummaryResponseDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  name!: string;
+
+  @ApiProperty()
+  url!: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  altTextEn!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  altTextVi!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  width!: number | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  height!: number | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  mimeType!: string | null;
+
+  @ApiProperty()
+  isActive!: boolean;
+}
+
+export class PublicMediaAssetSummaryResponseDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  url!: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  altTextEn!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  altTextVi!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  width!: number | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  height!: number | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  mimeType!: string | null;
 }

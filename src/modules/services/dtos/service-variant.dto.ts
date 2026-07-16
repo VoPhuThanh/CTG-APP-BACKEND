@@ -2,6 +2,7 @@ import { MetadataResponseDto } from '@/cores/dtos/metadata.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ServiceSkillLevel, ServiceStatus } from '../enums/service.enum';
 import { ClubStatus } from '../../clubs/enums/club.enum';
+import { MediaAssetSummaryResponseDto } from '../../media-assets/dtos/media-asset.dto';
 
 export class ServiceVariantClubSummaryDto {
   @ApiProperty()
@@ -48,14 +49,41 @@ export class ServiceVariantResponseDto {
   @ApiPropertyOptional({ nullable: true })
   descriptionVi!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
   imageUrl!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ nullable: true, format: 'uuid' })
+  imageAssetId!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: MediaAssetSummaryResponseDto,
+  })
+  imageAsset!: MediaAssetSummaryResponseDto | null;
+
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
   bannerImageUrl!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ nullable: true, format: 'uuid' })
+  bannerImageAssetId!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: MediaAssetSummaryResponseDto,
+  })
+  bannerImageAsset!: MediaAssetSummaryResponseDto | null;
+
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
   modelImageUrl!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, format: 'uuid' })
+  modelImageAssetId!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: MediaAssetSummaryResponseDto,
+  })
+  modelImageAsset!: MediaAssetSummaryResponseDto | null;
 
   @ApiPropertyOptional({ nullable: true })
   durationMinutes!: number | null;

@@ -1,6 +1,7 @@
 import { BaseEntityCore } from '@/cores/entities/core-entity';
 import { Club } from '@/modules/clubs/entities/club.entity';
 import { User } from '@/modules/users/entities/user.entity';
+import { MediaAsset } from '@/modules/media-assets/entities/media-asset.entity';
 import {
   Column,
   Entity,
@@ -55,11 +56,56 @@ export class ServiceVariant extends BaseEntityCore {
   @Column({ name: 'image_url', type: 'text', nullable: true })
   imageUrl!: string | null;
 
+  @Index('IDX_service_variants_image_asset_id')
+  @Column({ name: 'image_asset_id', type: 'uuid', nullable: true })
+  imageAssetId!: string | null;
+
+  @ManyToOne(() => MediaAsset, {
+    nullable: true,
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  })
+  @JoinColumn({
+    name: 'image_asset_id',
+    foreignKeyConstraintName: 'FK_service_variants_image_asset',
+  })
+  imageAsset!: MediaAsset | null;
+
   @Column({ name: 'banner_image_url', type: 'text', nullable: true })
   bannerImageUrl!: string | null;
 
+  @Index('IDX_service_variants_banner_asset_id')
+  @Column({ name: 'banner_image_asset_id', type: 'uuid', nullable: true })
+  bannerImageAssetId!: string | null;
+
+  @ManyToOne(() => MediaAsset, {
+    nullable: true,
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  })
+  @JoinColumn({
+    name: 'banner_image_asset_id',
+    foreignKeyConstraintName: 'FK_service_variants_banner_asset',
+  })
+  bannerImageAsset!: MediaAsset | null;
+
   @Column({ name: 'model_image_url', type: 'text', nullable: true })
   modelImageUrl!: string | null;
+
+  @Index('IDX_service_variants_model_asset_id')
+  @Column({ name: 'model_image_asset_id', type: 'uuid', nullable: true })
+  modelImageAssetId!: string | null;
+
+  @ManyToOne(() => MediaAsset, {
+    nullable: true,
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  })
+  @JoinColumn({
+    name: 'model_image_asset_id',
+    foreignKeyConstraintName: 'FK_service_variants_model_asset',
+  })
+  modelImageAsset!: MediaAsset | null;
 
   @Column({ name: 'duration_minutes', type: 'int', nullable: true })
   durationMinutes?: number;
