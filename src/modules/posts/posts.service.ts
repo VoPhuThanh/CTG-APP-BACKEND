@@ -28,22 +28,32 @@ import type {
   PostCategoryResponseDto,
   PublicPostCategoryResponseDto,
 } from './dtos/post-category.dto';
-import type { PostResponseDto, PublicPostResponseDto } from './dtos/post.dto';
+import type {
+  PostListItemResponseDto,
+  PostResponseDto,
+  PublicPostListItemResponseDto,
+  PublicPostResponseDto,
+} from './dtos/post.dto';
 import type { PostQueryDto } from './dtos/post-query.dto';
 import type { PostCategoryUpdateDto } from './dtos/update-post-category.dto';
 import type { PostUpdateDto } from './dtos/update-post.dto';
 import { PostCategory } from './entities/post-category.entity';
 import { Post } from './entities/post.entity';
 import { PostStatus } from './enums/post.enum';
+import { PostContentLocale } from './enums/post-content-locale.enum';
 import {
   mapPostCategoriesToPublicResponses,
   mapPostCategoriesToResponses,
   mapPostCategoryToResponse,
   mapPostToPublicResponse,
   mapPostToResponse,
-  mapPostsToPublicResponses,
-  mapPostsToResponses,
+  mapPostsToListItemResponses,
+  mapPostsToPublicListItemResponses,
 } from './posts.mapper';
+import { PostContentSanitizerService } from './post-content-sanitizer.service';
+import type { SanitizedPostContent } from './post-content-sanitizer.service';
+import { PostContentRendererService } from './post-content-renderer.service';
+import { PostInlineMediaService } from './post-inline-media.service';
 
 @Injectable()
 export class PostsService {
@@ -58,6 +68,12 @@ export class PostsService {
     private readonly postRepository: Repository<Post>,
 
     private readonly mediaAssetReferencesService: MediaAssetReferencesService,
+
+    private readonly postContentSanitizer: PostContentSanitizerService,
+
+    private readonly postContentRenderer: PostContentRendererService,
+
+    private readonly postInlineMediaService: PostInlineMediaService,
   ) {}
 
   async findPublicCategories(): Promise<PublicPostCategoryResponseDto[]> {
@@ -74,7 +90,7 @@ export class PostsService {
 
   async findPublicPosts(
     query: PostQueryDto,
-  ): Promise<PaginatedResponseDto<PublicPostResponseDto>> {
+  ): Promise<PaginatedResponseDto<PublicPostListItemResponseDto>> {
     const now = new Date();
     const search = query.search?.trim();
 
@@ -122,7 +138,7 @@ export class PostsService {
     const [posts, totalItems] = await queryBuilder.getManyAndCount();
 
     return buildPaginatedResponse(
-      mapPostsToPublicResponses(posts),
+      mapPostsToPublicListItemResponses(posts),
       totalItems,
       query,
     );
@@ -133,8 +149,11 @@ export class PostsService {
 
     const post = await this.postRepository
       .createQueryBuilder('post')
+      .addSelect(['post.contentHtmlEn', 'post.contentHtmlVi'])
       .leftJoinAndSelect('post.category', 'category')
       .leftJoinAndSelect('post.coverImageAsset', 'coverImageAsset')
+      .leftJoinAndSelect('post.inlineMediaReferences', 'inlineMediaReferences')
+      .leftJoinAndSelect('inlineMediaReferences.mediaAsset', 'inlineMediaAsset')
       .where('post.slug = :slug', { slug })
       .andWhere('post.status = :status', {
         status: PostStatus.PUBLISHED,
@@ -151,7 +170,7 @@ export class PostsService {
       throw AppError.notFound(AppErrorCode.POST_NOT_FOUND);
     }
 
-    return mapPostToPublicResponse(post);
+    return mapPostToPublicResponse(this.renderPostContentForPublic(post));
   }
 
   async findAllCategories(
@@ -308,7 +327,7 @@ export class PostsService {
 
   async findAllPosts(
     query: PostQueryDto,
-  ): Promise<PaginatedResponseDto<PostResponseDto>> {
+  ): Promise<PaginatedResponseDto<PostListItemResponseDto>> {
     const sortBy = query.sortBy;
     const sortOrder = query.sortOrder ?? 'ASC';
     const search = query.search?.trim();
@@ -365,7 +384,7 @@ export class PostsService {
     const [posts, totalItems] = await queryBuilder.getManyAndCount();
 
     return buildPaginatedResponse(
-      mapPostsToResponses(posts),
+      mapPostsToListItemResponses(posts),
       totalItems,
       query,
     );
@@ -374,7 +393,7 @@ export class PostsService {
   async findPost(id: string): Promise<PostResponseDto> {
     const post = await this.findPostEntityById(id);
 
-    return mapPostToResponse(post);
+    return mapPostToResponse(this.sanitizePostContentForOutput(post));
   }
 
   async createPost(
@@ -384,6 +403,12 @@ export class PostsService {
     const creator = await this.findCurrentUserOrThrow(currentUser);
     const category = await this.findCategoryEntityById(dto.categoryId);
     const slug = dto.slug ?? generateSlug(dto.titleEn);
+    const contentHtmlEn = this.postContentSanitizer.sanitizeInputWithMarkers(
+      dto.contentHtmlEn,
+    );
+    const contentHtmlVi = this.postContentSanitizer.sanitizeInputWithMarkers(
+      dto.contentHtmlVi,
+    );
 
     await this.ensurePostSlugIsAvailable(slug);
     let createdPostId = '';
@@ -404,8 +429,8 @@ export class PostsService {
         shortDescriptionVi: dto.shortDescriptionVi,
         contentUrlEn: dto.contentUrlEn,
         contentUrlVi: dto.contentUrlVi,
-        contentHtmlEn: dto.contentHtmlEn,
-        contentHtmlVi: dto.contentHtmlVi,
+        contentHtmlEn: contentHtmlEn.html ?? null,
+        contentHtmlVi: contentHtmlVi.html ?? null,
         coverImageUrl: dto.coverImageUrl,
         coverImageAsset,
         publishedAt: this.toOptionalDate(dto.publishedAt),
@@ -417,6 +442,18 @@ export class PostsService {
       });
 
       const savedPost = await postRepository.save(post);
+      await this.postInlineMediaService.synchronizeLocale(
+        manager,
+        savedPost,
+        PostContentLocale.EN,
+        contentHtmlEn.mediaAssetIds,
+      );
+      await this.postInlineMediaService.synchronizeLocale(
+        manager,
+        savedPost,
+        PostContentLocale.VI,
+        contentHtmlVi.mediaAssetIds,
+      );
       createdPostId = savedPost.id;
     });
 
@@ -430,6 +467,8 @@ export class PostsService {
   ): Promise<PostResponseDto> {
     const updater = await this.findCurrentUserOrThrow(currentUser);
     const post = await this.findPostEntityById(id);
+    const contentHtmlEn = this.sanitizeUpdatedPostContent(dto.contentHtmlEn);
+    const contentHtmlVi = this.sanitizeUpdatedPostContent(dto.contentHtmlVi);
 
     if (dto.slug && dto.slug !== post.slug) {
       await this.ensurePostSlugIsAvailable(dto.slug);
@@ -450,8 +489,12 @@ export class PostsService {
     }
     if (dto.contentUrlEn !== undefined) post.contentUrlEn = dto.contentUrlEn;
     if (dto.contentUrlVi !== undefined) post.contentUrlVi = dto.contentUrlVi;
-    if (dto.contentHtmlEn !== undefined) post.contentHtmlEn = dto.contentHtmlEn;
-    if (dto.contentHtmlVi !== undefined) post.contentHtmlVi = dto.contentHtmlVi;
+    if (dto.contentHtmlEn !== undefined) {
+      post.contentHtmlEn = contentHtmlEn?.html ?? null;
+    }
+    if (dto.contentHtmlVi !== undefined) {
+      post.contentHtmlVi = contentHtmlVi?.html ?? null;
+    }
     if (dto.coverImageUrl !== undefined) {
       post.coverImageUrl = dto.coverImageUrl;
     }
@@ -474,6 +517,22 @@ export class PostsService {
       }
 
       await manager.getRepository(Post).save(post);
+      if (contentHtmlEn) {
+        await this.postInlineMediaService.synchronizeLocale(
+          manager,
+          post,
+          PostContentLocale.EN,
+          contentHtmlEn.mediaAssetIds,
+        );
+      }
+      if (contentHtmlVi) {
+        await this.postInlineMediaService.synchronizeLocale(
+          manager,
+          post,
+          PostContentLocale.VI,
+          contentHtmlVi.mediaAssetIds,
+        );
+      }
     });
 
     return this.findPost(post.id);
@@ -536,23 +595,64 @@ export class PostsService {
   }
 
   private async findPostEntityById(id: string): Promise<Post> {
-    const post = await this.postRepository.findOne({
-      where: {
-        id,
-      },
-      relations: {
-        category: true,
-        coverImageAsset: true,
-        createdBy: true,
-        updatedBy: true,
-      },
-    });
+    const post = await this.postRepository
+      .createQueryBuilder('post')
+      .addSelect(['post.contentHtmlEn', 'post.contentHtmlVi'])
+      .leftJoinAndSelect('post.category', 'category')
+      .leftJoinAndSelect('post.coverImageAsset', 'coverImageAsset')
+      .leftJoinAndSelect('post.inlineMediaReferences', 'inlineMediaReferences')
+      .leftJoinAndSelect('inlineMediaReferences.mediaAsset', 'inlineMediaAsset')
+      .leftJoinAndSelect('post.createdBy', 'createdBy')
+      .leftJoinAndSelect('post.updatedBy', 'updatedBy')
+      .where('post.id = :id', { id })
+      .getOne();
 
     if (!post) {
       throw AppError.notFound(AppErrorCode.POST_NOT_FOUND);
     }
 
     return post;
+  }
+
+  private sanitizePostContentForOutput(post: Post): Post {
+    post.contentHtmlEn = this.postContentSanitizer.sanitizeOutput(
+      post.contentHtmlEn,
+    );
+    post.contentHtmlVi = this.postContentSanitizer.sanitizeOutput(
+      post.contentHtmlVi,
+    );
+
+    return post;
+  }
+
+  private renderPostContentForPublic(post: Post): Post {
+    const assetsById = new Map(
+      (post.inlineMediaReferences ?? [])
+        .filter((reference) => reference.mediaAsset)
+        .map((reference) => [reference.mediaAsset.id, reference.mediaAsset]),
+    );
+    post.contentHtmlEn = this.postContentRenderer.render(
+      post.contentHtmlEn,
+      assetsById,
+    );
+    post.contentHtmlVi = this.postContentRenderer.render(
+      post.contentHtmlVi,
+      assetsById,
+    );
+
+    return post;
+  }
+
+  private sanitizeUpdatedPostContent(
+    value: string | null | undefined,
+  ): SanitizedPostContent | null {
+    if (value === undefined) return null;
+
+    const result = this.postContentSanitizer.sanitizeInputWithMarkers(value);
+    return {
+      html: result.html ?? null,
+      mediaAssetIds: result.mediaAssetIds,
+    };
   }
 
   private async findCurrentUserOrThrow(

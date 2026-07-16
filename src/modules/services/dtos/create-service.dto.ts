@@ -54,7 +54,12 @@ export class ServiceCreateDto {
   @IsString()
   descriptionVi?: string;
 
-  @ApiPropertyOptional({ example: 'https://example.com/dance.jpg' })
+  @ApiPropertyOptional({
+    example: 'https://example.com/dance.jpg',
+    deprecated: true,
+    description:
+      'Legacy fallback only. Prefer imageAssetId; consumers resolve imageAsset.url before this field.',
+  })
   @IsOptional()
   @IsString()
   imageUrl?: string;

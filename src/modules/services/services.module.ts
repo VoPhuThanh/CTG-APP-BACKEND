@@ -7,13 +7,21 @@ import { ServiceVariant } from './entities/service-variant.entity';
 import { Service } from './entities/service.entity';
 import { ServicesController } from './services.controller';
 import { ServicesService } from './services.service';
+import { MediaAsset } from '../media-assets/entities/media-asset.entity';
+import { LegacyServiceMediaImportService } from './legacy-service-media-import.service';
+import { LegacyServiceMediaSourceReader } from './legacy-service-media-source.reader';
 
 @Module({
   imports: [
     MediaAssetsModule,
-    TypeOrmModule.forFeature([Club, Service, ServiceVariant, User]),
+    TypeOrmModule.forFeature([Club, MediaAsset, Service, ServiceVariant, User]),
   ],
   controllers: [ServicesController],
-  providers: [ServicesService],
+  providers: [
+    LegacyServiceMediaImportService,
+    LegacyServiceMediaSourceReader,
+    ServicesService,
+  ],
+  exports: [LegacyServiceMediaImportService],
 })
 export class ServicesModule {}

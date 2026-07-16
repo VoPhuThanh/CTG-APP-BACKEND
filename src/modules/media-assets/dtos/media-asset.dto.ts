@@ -28,6 +28,9 @@ export class MediaAssetResponseDto {
   storageProvider!: string | null;
 
   @ApiPropertyOptional({ nullable: true })
+  bucket!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
   storageKey!: string | null;
 
   @ApiPropertyOptional({ nullable: true })

@@ -5,7 +5,9 @@ import {
 } from './dtos/post-category.dto';
 import {
   PostCategorySummaryDto,
+  PostListItemResponseDto,
   PostResponseDto,
+  PublicPostListItemResponseDto,
   PublicPostResponseDto,
 } from './dtos/post.dto';
 import { PostCategory } from './entities/post-category.entity';
@@ -72,8 +74,8 @@ export function mapPostCategoriesToPublicResponses(
   return categories.map(mapPostCategoryToPublicResponse);
 }
 
-export function mapPostToResponse(post: Post): PostResponseDto {
-  const dto = new PostResponseDto();
+export function mapPostToListItemResponse(post: Post): PostListItemResponseDto {
+  const dto = new PostListItemResponseDto();
 
   dto.id = post.id;
   dto.titleEn = post.titleEn;
@@ -84,8 +86,6 @@ export function mapPostToResponse(post: Post): PostResponseDto {
   dto.shortDescriptionVi = post.shortDescriptionVi ?? null;
   dto.contentUrlEn = post.contentUrlEn ?? null;
   dto.contentUrlVi = post.contentUrlVi ?? null;
-  dto.contentHtmlEn = post.contentHtmlEn ?? null;
-  dto.contentHtmlVi = post.contentHtmlVi ?? null;
   dto.coverImageUrl = post.coverImageUrl ?? null;
   dto.coverImageAssetId = post.coverImageAssetId ?? null;
   dto.coverImageAsset = mapMediaAssetToSummary(post.coverImageAsset);
@@ -98,12 +98,37 @@ export function mapPostToResponse(post: Post): PostResponseDto {
   return dto;
 }
 
-export function mapPostsToResponses(posts: Post[]): PostResponseDto[] {
-  return posts.map(mapPostToResponse);
+export function mapPostToResponse(post: Post): PostResponseDto {
+  const dto = Object.assign(
+    new PostResponseDto(),
+    mapPostToListItemResponse(post),
+  );
+
+  dto.contentHtmlEn = post.contentHtmlEn ?? null;
+  dto.contentHtmlVi = post.contentHtmlVi ?? null;
+  const uniqueInlineAssets = new Map(
+    (post.inlineMediaReferences ?? [])
+      .filter((reference) => reference.mediaAsset)
+      .map((reference) => [reference.mediaAsset.id, reference.mediaAsset]),
+  );
+  dto.inlineMediaAssets = [...uniqueInlineAssets.values()]
+    .sort((left, right) => left.id.localeCompare(right.id))
+    .map((asset) => mapMediaAssetToSummary(asset))
+    .filter((asset): asset is NonNullable<typeof asset> => asset !== null);
+
+  return dto;
 }
 
-export function mapPostToPublicResponse(post: Post): PublicPostResponseDto {
-  const dto = new PublicPostResponseDto();
+export function mapPostsToListItemResponses(
+  posts: Post[],
+): PostListItemResponseDto[] {
+  return posts.map(mapPostToListItemResponse);
+}
+
+export function mapPostToPublicListItemResponse(
+  post: Post,
+): PublicPostListItemResponseDto {
+  const dto = new PublicPostListItemResponseDto();
 
   dto.id = post.id;
   dto.titleEn = post.titleEn;
@@ -112,10 +137,6 @@ export function mapPostToPublicResponse(post: Post): PublicPostResponseDto {
   dto.category = mapCategoryToSummary(post.category);
   dto.shortDescriptionEn = post.shortDescriptionEn ?? null;
   dto.shortDescriptionVi = post.shortDescriptionVi ?? null;
-  dto.contentUrlEn = post.contentUrlEn ?? null;
-  dto.contentUrlVi = post.contentUrlVi ?? null;
-  dto.contentHtmlEn = post.contentHtmlEn ?? null;
-  dto.contentHtmlVi = post.contentHtmlVi ?? null;
   dto.coverImageUrl = post.coverImageUrl ?? null;
   dto.coverImageAsset = mapMediaAssetToPublicSummary(post.coverImageAsset);
   dto.publishedAt = post.publishedAt ?? null;
@@ -124,8 +145,24 @@ export function mapPostToPublicResponse(post: Post): PublicPostResponseDto {
   return dto;
 }
 
-export function mapPostsToPublicResponses(
+export function mapPostToPublicResponse(post: Post): PublicPostResponseDto {
+  const dto = Object.assign(
+    new PublicPostResponseDto(),
+    mapPostToPublicListItemResponse(post),
+  );
+
+  dto.contentUrlEn = post.contentUrlEn ?? null;
+  dto.contentUrlVi = post.contentUrlVi ?? null;
+  dto.contentHtmlEn = post.contentHtmlEn ?? null;
+  dto.contentHtmlVi = post.contentHtmlVi ?? null;
+  dto.resolvedContentHtmlEn = dto.contentHtmlEn;
+  dto.resolvedContentHtmlVi = dto.contentHtmlVi;
+
+  return dto;
+}
+
+export function mapPostsToPublicListItemResponses(
   posts: Post[],
-): PublicPostResponseDto[] {
-  return posts.map(mapPostToPublicResponse);
+): PublicPostListItemResponseDto[] {
+  return posts.map(mapPostToPublicListItemResponse);
 }

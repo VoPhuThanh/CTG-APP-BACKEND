@@ -207,6 +207,7 @@ export class MediaAssetsService {
       descriptionVi: dto.descriptionVi,
       url: dto.url,
       storageProvider: null,
+      bucket: null,
       storageKey: null,
       originalFilename: null,
       checksum: null,
@@ -286,6 +287,7 @@ export class MediaAssetsService {
         key: storageKey,
         body: file.buffer,
         contentType: imageMetadata.mimeType,
+        cacheControl: this.storageConfig.cacheControl,
       });
     } catch (error) {
       await this.compensateStorageDelete(storageKey);
@@ -300,8 +302,9 @@ export class MediaAssetsService {
         altTextVi: dto.altTextVi,
         descriptionEn: dto.descriptionEn,
         descriptionVi: dto.descriptionVi,
-        url: storedObject.publicUrl,
+        url: null,
         storageProvider: storedObject.provider,
+        bucket: storedObject.bucket,
         storageKey: storedObject.key,
         originalFilename,
         checksum,

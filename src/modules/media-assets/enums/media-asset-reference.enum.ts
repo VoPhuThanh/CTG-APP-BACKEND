@@ -10,6 +10,7 @@ export enum MediaAssetReferenceSlot {
   SERVICE_VARIANT_BANNER_IMAGE = 'service_variant.banner_image',
   SERVICE_VARIANT_MODEL_IMAGE = 'service_variant.model_image',
   POST_COVER_IMAGE = 'post.cover_image',
+  POST_INLINE_CONTENT_IMAGE = 'post.inline_content_image',
 }
 
 export enum MediaAssetSelectionWarningCode {

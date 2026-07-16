@@ -7,10 +7,12 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { PostStatus } from '../enums/post.enum';
 import { PostCategory } from './post-category.entity';
+import { PostInlineMediaAsset } from './post-inline-media-asset.entity';
 
 @Entity('posts')
 export class Post extends BaseEntityCore {
@@ -41,18 +43,31 @@ export class Post extends BaseEntityCore {
   @Column({ name: 'short_description_vi', type: 'text', nullable: true })
   shortDescriptionVi?: string;
 
+  /** @deprecated Temporary legacy import input. */
   @Column({ name: 'content_url_en', type: 'text', nullable: true })
   contentUrlEn?: string;
 
+  /** @deprecated Temporary legacy import input. */
   @Column({ name: 'content_url_vi', type: 'text', nullable: true })
   contentUrlVi?: string;
 
-  @Column({ name: 'content_html_en', type: 'text', nullable: true })
+  @Column({
+    name: 'content_html_en',
+    type: 'text',
+    nullable: true,
+    select: false,
+  })
   contentHtmlEn!: string | null;
 
-  @Column({ name: 'content_html_vi', type: 'text', nullable: true })
+  @Column({
+    name: 'content_html_vi',
+    type: 'text',
+    nullable: true,
+    select: false,
+  })
   contentHtmlVi!: string | null;
 
+  /** @deprecated Use coverImageAsset. */
   @Column({ name: 'cover_image_url', type: 'text', nullable: true })
   coverImageUrl?: string;
 
@@ -70,6 +85,9 @@ export class Post extends BaseEntityCore {
     foreignKeyConstraintName: 'FK_posts_cover_image_asset',
   })
   coverImageAsset!: MediaAsset | null;
+
+  @OneToMany(() => PostInlineMediaAsset, (inlineMedia) => inlineMedia.post)
+  inlineMediaReferences!: PostInlineMediaAsset[];
 
   @Column({ name: 'published_at', type: 'timestamptz', nullable: true })
   publishedAt?: Date;

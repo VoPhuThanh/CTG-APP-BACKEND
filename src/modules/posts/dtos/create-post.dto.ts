@@ -12,6 +12,7 @@ import {
   Min,
 } from 'class-validator';
 import { PostStatus } from '../enums/post.enum';
+import { POST_CONTENT_MAX_BYTES } from '../post-content.constants';
 
 export class PostCreateDto {
   @ApiProperty({ example: 'How to Start Training Safely' })
@@ -56,46 +57,61 @@ export class PostCreateDto {
   @ApiPropertyOptional({
     example: '/posts/en/how-to-start-training-safely.html',
     description:
-      'URL to the premade English HTML file. This is not post body content.',
+      'Deprecated legacy import source. New clients must send contentHtmlEn.',
+    deprecated: true,
   })
   @IsOptional()
   @IsString()
+  /** @deprecated Temporary legacy import input. */
   contentUrlEn?: string;
 
   @ApiPropertyOptional({
     example: '/posts/vi/cach-bat-dau-tap-luyen-an-toan.html',
     description:
-      'URL to the premade Vietnamese HTML file. This is not post body content.',
+      'Deprecated legacy import source. New clients must send contentHtmlVi.',
+    deprecated: true,
   })
   @IsOptional()
   @IsString()
+  /** @deprecated Temporary legacy import input. */
   contentUrlVi?: string;
 
   @ApiPropertyOptional({
-    description: 'Database-stored English post body HTML.',
+    description:
+      'Database-stored English post body HTML. Sanitized server-side. Empty sanitized content is stored as null.',
     nullable: true,
+    maxLength: POST_CONTENT_MAX_BYTES,
   })
   @IsOptional()
   @IsString()
   contentHtmlEn?: string | null;
 
   @ApiPropertyOptional({
-    description: 'Database-stored Vietnamese post body HTML.',
+    description:
+      'Database-stored Vietnamese post body HTML. Sanitized server-side. Empty sanitized content is stored as null.',
     nullable: true,
+    maxLength: POST_CONTENT_MAX_BYTES,
   })
   @IsOptional()
   @IsString()
   contentHtmlVi?: string | null;
 
-  @ApiPropertyOptional({ example: 'https://example.com/post-cover.jpg' })
+  @ApiPropertyOptional({
+    example: 'https://example.com/post-cover.jpg',
+    deprecated: true,
+    description:
+      'Deprecated cover fallback. New clients should send coverImageAssetId.',
+  })
   @IsOptional()
   @IsString()
+  /** @deprecated Use coverImageAssetId. */
   coverImageUrl?: string;
 
   @ApiPropertyOptional({
     format: 'uuid',
     nullable: true,
-    description: 'Managed media asset for the post cover image.',
+    description:
+      'Managed media asset for the post cover image. Explicit null clears the slot.',
   })
   @IsOptional()
   @IsUUID()

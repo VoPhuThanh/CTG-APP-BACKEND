@@ -6,6 +6,7 @@ import {
   PublicMediaAssetResponseDto,
 } from './dtos/media-asset.dto';
 import { MediaAsset } from './entities/media-asset.entity';
+import { resolveMediaAssetPublicUrl } from './media-asset-url.resolver';
 
 export function mapMediaAssetToResponse(
   asset: MediaAsset,
@@ -18,8 +19,9 @@ export function mapMediaAssetToResponse(
   dto.altTextVi = asset.altTextVi ?? null;
   dto.descriptionEn = asset.descriptionEn ?? null;
   dto.descriptionVi = asset.descriptionVi ?? null;
-  dto.url = asset.url;
+  dto.url = resolveMediaAssetPublicUrl(asset);
   dto.storageProvider = asset.storageProvider ?? null;
+  dto.bucket = asset.bucket ?? null;
   dto.storageKey = asset.storageKey ?? null;
   dto.originalFilename = asset.originalFilename ?? null;
   dto.checksum = asset.checksum ?? null;
@@ -51,7 +53,7 @@ export function mapMediaAssetToPublicResponse(
   dto.name = asset.name;
   dto.altTextEn = asset.altTextEn ?? null;
   dto.altTextVi = asset.altTextVi ?? null;
-  dto.url = asset.url;
+  dto.url = resolveMediaAssetPublicUrl(asset);
   dto.type = asset.type;
   dto.usage = asset.usage;
   dto.mimeType = asset.mimeType ?? null;
@@ -76,7 +78,7 @@ export function mapMediaAssetToSummary(
 
   dto.id = asset.id;
   dto.name = asset.name;
-  dto.url = asset.url;
+  dto.url = resolveMediaAssetPublicUrl(asset);
   dto.altTextEn = asset.altTextEn ?? null;
   dto.altTextVi = asset.altTextVi ?? null;
   dto.width = asset.width ?? null;
@@ -95,7 +97,7 @@ export function mapMediaAssetToPublicSummary(
   const dto = new PublicMediaAssetSummaryResponseDto();
 
   dto.id = asset.id;
-  dto.url = asset.url;
+  dto.url = resolveMediaAssetPublicUrl(asset);
   dto.altTextEn = asset.altTextEn ?? null;
   dto.altTextVi = asset.altTextVi ?? null;
   dto.width = asset.width ?? null;

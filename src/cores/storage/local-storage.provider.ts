@@ -39,7 +39,7 @@ export class LocalStorageProvider implements StorageProvider, OnModuleInit {
     return {
       key: request.key,
       provider: this.name,
-      publicUrl: this.getPublicUrl(request.key),
+      bucket: null,
     };
   }
 
@@ -61,19 +61,6 @@ export class LocalStorageProvider implements StorageProvider, OnModuleInit {
       if (this.isMissingFileError(error)) return false;
       throw error;
     }
-  }
-
-  getPublicUrl(key: string): string {
-    this.assertSafeKey(key);
-    const encodedKey = key
-      .split('/')
-      .map((segment) => encodeURIComponent(segment))
-      .join('/');
-    const relativeUrl = `${this.config.publicPath}/${encodedKey}`;
-
-    return this.config.publicBaseUrl
-      ? `${this.config.publicBaseUrl}${relativeUrl}`
-      : relativeUrl;
   }
 
   private resolveKey(key: string): string {

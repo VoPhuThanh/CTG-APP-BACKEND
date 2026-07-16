@@ -4,12 +4,13 @@ export interface StorageWriteRequest {
   key: string;
   body: Buffer;
   contentType: string;
+  cacheControl?: string;
 }
 
 export interface StoredObject {
   key: string;
   provider: string;
-  publicUrl: string;
+  bucket: string | null;
 }
 
 export interface StorageProvider {
@@ -18,5 +19,4 @@ export interface StorageProvider {
   write(request: StorageWriteRequest): Promise<StoredObject>;
   delete(key: string): Promise<void>;
   exists(key: string): Promise<boolean>;
-  getPublicUrl(key: string): string;
 }

@@ -10,11 +10,13 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const mediaStorageConfig = app.get<MediaStorageConfig>(MEDIA_STORAGE_CONFIG);
 
-  app.useStaticAssets(mediaStorageConfig.localDirectory, {
-    prefix: `${mediaStorageConfig.publicPath}/`,
-    index: false,
-    redirect: false,
-  });
+  if (mediaStorageConfig.provider === 'local') {
+    app.useStaticAssets(mediaStorageConfig.localDirectory, {
+      prefix: `${mediaStorageConfig.publicPath}/`,
+      index: false,
+      redirect: false,
+    });
+  }
   const allowedOrigins = [process.env.FRONTEND_URL, process.env.CMS_URL].filter(
     (origin): origin is string => Boolean(origin),
   );

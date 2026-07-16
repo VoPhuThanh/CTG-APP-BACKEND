@@ -62,6 +62,8 @@ export const AppErrorCode = {
 
   POST_NOT_FOUND: 'POST.NOT_FOUND',
   POST_SLUG_ALREADY_EXISTS: 'POST.SLUG_ALREADY_EXISTS',
+  POST_CONTENT_TOO_LARGE: 'POST.CONTENT_TOO_LARGE',
+  POST_INLINE_MEDIA_MARKER_INVALID: 'POST.INLINE_MEDIA_MARKER_INVALID',
 } as const;
 
 export type AppErrorCode = (typeof AppErrorCode)[keyof typeof AppErrorCode];

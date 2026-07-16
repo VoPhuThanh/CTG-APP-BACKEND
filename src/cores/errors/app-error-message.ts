@@ -83,4 +83,8 @@ export const AppErrorMessage: Record<AppErrorCode, string> = {
 
   [AppErrorCode.POST_NOT_FOUND]: 'Post not found.',
   [AppErrorCode.POST_SLUG_ALREADY_EXISTS]: 'Post slug already exists.',
+  [AppErrorCode.POST_CONTENT_TOO_LARGE]:
+    'Post HTML content exceeds the supported size limit.',
+  [AppErrorCode.POST_INLINE_MEDIA_MARKER_INVALID]:
+    'Post inline media markers must contain a valid media asset UUID.',
 };

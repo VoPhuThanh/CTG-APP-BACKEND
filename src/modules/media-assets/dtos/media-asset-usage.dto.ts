@@ -25,6 +25,13 @@ export class MediaAssetReferenceResponseDto {
     description: 'Request/entity property that stores the media asset ID.',
   })
   field!: string;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    enum: ['en', 'vi'],
+    description: 'Post locale for inline-content references.',
+  })
+  locale?: 'en' | 'vi' | null;
 }
 
 export class MediaAssetUsageReportResponseDto {

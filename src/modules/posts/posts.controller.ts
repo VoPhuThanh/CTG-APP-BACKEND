@@ -11,6 +11,7 @@ import {
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiPayloadTooLargeResponse,
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
@@ -34,7 +35,9 @@ import { PostsService } from './posts.service';
 export class PostsController {
   constructor(private readonly postsService: PostsService) {}
 
-  @ApiOperation({ summary: 'Find public published posts' })
+  @ApiOperation({
+    summary: 'Find public published posts without full HTML bodies',
+  })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
   @ApiQuery({ name: 'search', required: false, type: String })
@@ -52,7 +55,9 @@ export class PostsController {
     return this.postsService.findPublicCategories();
   }
 
-  @ApiOperation({ summary: 'Find public published post by slug' })
+  @ApiOperation({
+    summary: 'Find public published post detail with sanitized bilingual HTML',
+  })
   @Get('public/:slug')
   findPublicPostBySlug(@Param('slug') slug: string) {
     return this.postsService.findPublicPostBySlug(slug);
@@ -115,7 +120,9 @@ export class PostsController {
     return this.postsService.deleteCategory(categoryId, currentUser);
   }
 
-  @ApiOperation({ summary: 'Find all posts' })
+  @ApiOperation({
+    summary: 'Find all post list items without full HTML bodies',
+  })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
   @ApiQuery({
@@ -143,7 +150,7 @@ export class PostsController {
     return this.postsService.findAllPosts(query);
   }
 
-  @ApiOperation({ summary: 'Find post by id' })
+  @ApiOperation({ summary: 'Find post detail with sanitized bilingual HTML' })
   @Authorized('posts:read')
   @Get(':id')
   findPost(@Param('id') id: string) {
@@ -151,6 +158,9 @@ export class PostsController {
   }
 
   @ApiOperation({ summary: 'Create post' })
+  @ApiPayloadTooLargeResponse({
+    description: 'POST.CONTENT_TOO_LARGE',
+  })
   @Authorized('posts:create')
   @HttpPost()
   createPost(
@@ -161,6 +171,9 @@ export class PostsController {
   }
 
   @ApiOperation({ summary: 'Update post by id' })
+  @ApiPayloadTooLargeResponse({
+    description: 'POST.CONTENT_TOO_LARGE',
+  })
   @Authorized('posts:update')
   @Patch(':id')
   updatePost(

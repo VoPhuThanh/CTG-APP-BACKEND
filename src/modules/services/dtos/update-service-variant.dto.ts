@@ -59,7 +59,9 @@ export class ServiceVariantUpdateDto {
   @ApiPropertyOptional({
     example: 'https://example.com/zumba.jpg',
     nullable: true,
-    description: 'Absolute HTTP(S) URL or a repository-local / public path.',
+    deprecated: true,
+    description:
+      'Legacy fallback only. Prefer imageAssetId; consumers resolve imageAsset.url before this field.',
   })
   @IsOptional()
   @IsString()
@@ -68,7 +70,9 @@ export class ServiceVariantUpdateDto {
   @ApiPropertyOptional({
     example: '/images/services/zumba-banner.jpg',
     nullable: true,
-    description: 'Absolute HTTP(S) URL or a repository-local / public path.',
+    deprecated: true,
+    description:
+      'Legacy fallback only. Prefer bannerImageAssetId; consumers resolve bannerImageAsset.url before this field.',
   })
   @IsOptional()
   @IsString()
@@ -77,7 +81,9 @@ export class ServiceVariantUpdateDto {
   @ApiPropertyOptional({
     example: 'https://example.com/zumba-model.jpg',
     nullable: true,
-    description: 'Absolute HTTP(S) URL or a repository-local / public path.',
+    deprecated: true,
+    description:
+      'Legacy fallback only. Prefer modelImageAssetId; consumers resolve modelImageAsset.url before this field.',
   })
   @IsOptional()
   @IsString()

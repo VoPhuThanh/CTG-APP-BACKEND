@@ -283,12 +283,6 @@ export class ServicesService {
     const queryBuilder = this.serviceVariantRepository
       .createQueryBuilder('variant')
       .leftJoinAndSelect('variant.service', 'service')
-      .leftJoinAndSelect('variant.clubs', 'club')
-      .leftJoinAndSelect('variant.imageAsset', 'imageAsset')
-      .leftJoinAndSelect('variant.bannerImageAsset', 'bannerImageAsset')
-      .leftJoinAndSelect('variant.modelImageAsset', 'modelImageAsset')
-      .leftJoinAndSelect('variant.createdBy', 'createdBy')
-      .leftJoinAndSelect('variant.updatedBy', 'updatedBy')
       .where('service.id = :serviceId', { serviceId });
 
     if (search) {
@@ -325,11 +319,28 @@ export class ServicesService {
 
     queryBuilder
       .addOrderBy('variant.createdAt', 'DESC')
-      .addOrderBy('variant.id', 'ASC')
-      .skip(getPaginationSkip(query))
-      .take(getPaginationTake(query));
+      .addOrderBy('variant.id', 'ASC');
 
-    const [variants, totalItems] = await queryBuilder.getManyAndCount();
+    const { ids: pageIds, totalItems } = await getPaginatedIds(
+      queryBuilder,
+      'variant',
+      query,
+    );
+    const loadedVariants =
+      pageIds.length === 0
+        ? []
+        : await this.serviceVariantRepository
+            .createQueryBuilder('variant')
+            .leftJoinAndSelect('variant.service', 'service')
+            .leftJoinAndSelect('variant.clubs', 'club')
+            .leftJoinAndSelect('variant.imageAsset', 'imageAsset')
+            .leftJoinAndSelect('variant.bannerImageAsset', 'bannerImageAsset')
+            .leftJoinAndSelect('variant.modelImageAsset', 'modelImageAsset')
+            .leftJoinAndSelect('variant.createdBy', 'createdBy')
+            .leftJoinAndSelect('variant.updatedBy', 'updatedBy')
+            .where('variant.id IN (:...pageIds)', { pageIds })
+            .getMany();
+    const variants = orderEntitiesByIds(loadedVariants, pageIds);
 
     return buildPaginatedResponse(
       variants.map((variant) => mapServiceVariantToResponse(variant)),

@@ -5,6 +5,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { EntityManager, Repository } from 'typeorm';
 
 import { Post } from '../posts/entities/post.entity';
+import { PostInlineMediaAsset } from '../posts/entities/post-inline-media-asset.entity';
+import { PostContentLocale } from '../posts/enums/post-content-locale.enum';
 import { ServiceVariant } from '../services/entities/service-variant.entity';
 import { Service } from '../services/entities/service.entity';
 import type {
@@ -39,6 +41,9 @@ export class MediaAssetReferencesService {
 
     @InjectRepository(Post)
     private readonly postRepository: Repository<Post>,
+
+    @InjectRepository(PostInlineMediaAsset)
+    private readonly postInlineMediaRepository: Repository<PostInlineMediaAsset>,
   ) {}
 
   async validateImageSelection(
@@ -129,8 +134,11 @@ export class MediaAssetReferencesService {
     const postRepository = manager
       ? manager.getRepository(Post)
       : this.postRepository;
+    const postInlineMediaRepository = manager
+      ? manager.getRepository(PostInlineMediaAsset)
+      : this.postInlineMediaRepository;
 
-    const [services, variants, posts] = await Promise.all([
+    const [services, variants, posts, inlineReferences] = await Promise.all([
       serviceRepository.find({
         select: { id: true, nameEn: true, nameVi: true, imageAssetId: true },
         where: { imageAssetId: assetId },
@@ -162,6 +170,14 @@ export class MediaAssetReferencesService {
         where: { coverImageAssetId: assetId },
         withDeleted: true,
       }),
+      postInlineMediaRepository
+        .createQueryBuilder('inlineReference')
+        .leftJoinAndSelect('inlineReference.post', 'inlinePost')
+        .withDeleted()
+        .where('inlineReference.mediaAssetId = :assetId', { assetId })
+        .orderBy('inlineReference.locale', 'ASC')
+        .addOrderBy('inlineReference.postId', 'ASC')
+        .getMany(),
     ]);
 
     const references: MediaAssetReferenceResponseDto[] = [];
@@ -216,9 +232,23 @@ export class MediaAssetReferencesService {
       });
     }
 
+    for (const reference of inlineReferences) {
+      references.push({
+        entityType: MediaAssetReferenceEntityType.POST,
+        entityId: reference.postId,
+        entityName: reference.post?.titleEn || reference.post?.titleVi || null,
+        slot: MediaAssetReferenceSlot.POST_INLINE_CONTENT_IMAGE,
+        field:
+          reference.locale === PostContentLocale.EN
+            ? 'contentHtmlEn'
+            : 'contentHtmlVi',
+        locale: reference.locale,
+      });
+    }
+
     return references.sort((left, right) =>
-      `${left.entityType}:${left.entityId}:${left.slot}`.localeCompare(
-        `${right.entityType}:${right.entityId}:${right.slot}`,
+      `${left.entityType}:${left.entityId}:${left.slot}:${left.locale ?? ''}`.localeCompare(
+        `${right.entityType}:${right.entityId}:${right.slot}:${right.locale ?? ''}`,
       ),
     );
   }

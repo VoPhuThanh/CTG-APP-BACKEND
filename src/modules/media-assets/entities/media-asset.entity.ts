@@ -34,8 +34,8 @@ export class MediaAsset extends BaseEntityCore {
   @Column({ name: 'description_vi', type: 'text', nullable: true })
   descriptionVi?: string;
 
-  @Column({ type: 'text' })
-  url!: string;
+  @Column({ type: 'text', nullable: true })
+  url!: string | null;
 
   @Column({
     name: 'storage_provider',
@@ -44,6 +44,9 @@ export class MediaAsset extends BaseEntityCore {
     nullable: true,
   })
   storageProvider!: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  bucket!: string | null;
 
   @Index('UQ_media_assets_storage_key', { unique: true })
   @Column({

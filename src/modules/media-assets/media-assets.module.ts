@@ -10,10 +10,18 @@ import { MediaAssetReferencesService } from './media-asset-references.service';
 import { MediaAssetsController } from './media-assets.controller';
 import { MediaAssetsService } from './media-assets.service';
 import { MediaImageUploadInterceptor } from './interceptors/media-image-upload.interceptor';
+import { PostInlineMediaAsset } from '../posts/entities/post-inline-media-asset.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([MediaAsset, Post, Service, ServiceVariant, User]),
+    TypeOrmModule.forFeature([
+      MediaAsset,
+      Post,
+      PostInlineMediaAsset,
+      Service,
+      ServiceVariant,
+      User,
+    ]),
   ],
   providers: [
     MediaAssetsService,
