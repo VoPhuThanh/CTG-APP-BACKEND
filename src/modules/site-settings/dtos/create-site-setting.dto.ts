@@ -5,6 +5,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   MaxLength,
   Min,
@@ -55,9 +56,24 @@ export class SiteSettingCreateDto {
   @IsString()
   descriptionVi?: string;
 
-  @ApiProperty({ example: 'CTG Fitness' })
+  @ApiPropertyOptional({
+    example: 'CTG Fitness',
+    nullable: true,
+    description:
+      'Scalar value. Required for non-media types. Media-asset settings may retain a legacy URL fallback during transition.',
+  })
+  @IsOptional()
   @IsString()
-  value!: string;
+  value?: string | null;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description: 'Managed image selection for valueType=media_asset.',
+  })
+  @IsOptional()
+  @IsUUID()
+  mediaAssetId?: string | null;
 
   @ApiPropertyOptional({
     enum: SiteSettingValueType,

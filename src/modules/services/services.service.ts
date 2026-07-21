@@ -762,17 +762,38 @@ export class ServicesService {
     return clubs;
   }
   async findPublicServices(): Promise<PublicServiceResponseDto[]> {
-    const services = await this.serviceRepository.find({
-      where: {
-        status: ServiceStatus.PUBLISHED,
-      },
-      order: {
-        displayOrder: 'ASC',
-        createdAt: 'DESC',
-        id: 'ASC',
-      },
-      relations: { imageAsset: true },
-    });
+    const services = await this.serviceRepository
+      .createQueryBuilder('service')
+      .leftJoinAndSelect(
+        'service.variants',
+        'variant',
+        'variant.status = :variantStatus AND variant.deletedAt IS NULL',
+        { variantStatus: ServiceStatus.PUBLISHED },
+      )
+      .leftJoinAndSelect('service.imageAsset', 'serviceImageAsset')
+      .leftJoinAndSelect('variant.imageAsset', 'variantImageAsset')
+      .leftJoinAndSelect('variant.bannerImageAsset', 'bannerImageAsset')
+      .leftJoinAndSelect('variant.modelImageAsset', 'modelImageAsset')
+      .leftJoinAndSelect(
+        'variant.clubs',
+        'club',
+        'club.status = :clubStatus AND club.deletedAt IS NULL',
+        { clubStatus: ClubStatus.PUBLISHED },
+      )
+      .where('service.status = :serviceStatus', {
+        serviceStatus: ServiceStatus.PUBLISHED,
+      })
+      .andWhere('service.deletedAt IS NULL')
+      .orderBy('service.displayOrder', 'ASC')
+      .addOrderBy('service.createdAt', 'DESC')
+      .addOrderBy('service.id', 'ASC')
+      .addOrderBy('variant.displayOrder', 'ASC')
+      .addOrderBy('variant.nameEn', 'ASC')
+      .addOrderBy('variant.id', 'ASC')
+      .addOrderBy('club.displayOrder', 'ASC')
+      .addOrderBy('club.nameEn', 'ASC')
+      .addOrderBy('club.id', 'ASC')
+      .getMany();
 
     return mapServicesToPublicResponses(services);
   }
@@ -833,7 +854,7 @@ export class ServicesService {
     const [variants, totalItems] = await queryBuilder.getManyAndCount();
 
     return buildPaginatedResponse(
-      variants.map(mapServiceVariantToPublicResponse),
+      variants.map((variant) => mapServiceVariantToPublicResponse(variant)),
       totalItems,
       query,
     );

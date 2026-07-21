@@ -5,6 +5,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   MaxLength,
   Min,
@@ -44,10 +45,20 @@ export class SiteSettingUpdateDto {
   @IsString()
   descriptionVi?: string;
 
-  @ApiPropertyOptional({ example: 'CTG Fitness' })
+  @ApiPropertyOptional({
+    example: 'CTG Fitness',
+    nullable: true,
+    description:
+      'For media_asset settings, an optional public URL retained as the legacy fallback.',
+  })
   @IsOptional()
   @IsString()
-  value?: string;
+  value?: string | null;
+
+  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @IsOptional()
+  @IsUUID()
+  mediaAssetId?: string | null;
 
   @ApiPropertyOptional({ enum: SiteSettingValueType })
   @IsOptional()

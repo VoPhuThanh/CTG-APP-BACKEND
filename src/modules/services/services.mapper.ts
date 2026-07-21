@@ -115,43 +115,12 @@ export function mapServicesToResponses(
 }
 export function mapServiceVariantToPublicResponse(
   variant: ServiceVariant,
+  fallbackServiceId?: string,
 ): PublicServiceVariantResponseDto {
   const dto = new PublicServiceVariantResponseDto();
 
   dto.id = variant.id;
-  dto.serviceId = variant.service.id;
-  dto.nameEn = variant.nameEn;
-  dto.nameVi = variant.nameVi;
-  dto.slug = variant.slug;
-  dto.shortDescriptionEn = variant.shortDescriptionEn ?? null;
-  dto.shortDescriptionVi = variant.shortDescriptionVi ?? null;
-  dto.descriptionEn = variant.descriptionEn ?? null;
-  dto.descriptionVi = variant.descriptionVi ?? null;
-  dto.imageUrl = variant.imageUrl ?? null;
-  dto.imageAsset = mapMediaAssetToPublicSummary(variant.imageAsset);
-  dto.durationMinutes = variant.durationMinutes ?? null;
-  dto.caloriesBurnedMin = variant.caloriesBurnedMin ?? null;
-  dto.caloriesBurnedMax = variant.caloriesBurnedMax ?? null;
-  dto.skillLevel = variant.skillLevel;
-  dto.displayOrder = variant.displayOrder;
-  dto.isFeatured = variant.isFeatured;
-
-  return dto;
-}
-
-export function mapServiceVariantsToPublicResponses(
-  variants: ServiceVariant[],
-): PublicServiceVariantResponseDto[] {
-  return variants.map(mapServiceVariantToPublicResponse);
-}
-
-export function mapServiceVariantToPublicDetailResponse(
-  variant: ServiceVariant,
-): PublicServiceVariantDetailResponseDto {
-  const dto = new PublicServiceVariantDetailResponseDto();
-
-  dto.id = variant.id;
-  dto.serviceId = variant.service.id;
+  dto.serviceId = variant.service?.id ?? fallbackServiceId ?? '';
   dto.nameEn = variant.nameEn;
   dto.nameVi = variant.nameVi;
   dto.slug = variant.slug;
@@ -171,12 +140,6 @@ export function mapServiceVariantToPublicDetailResponse(
   dto.skillLevel = variant.skillLevel;
   dto.displayOrder = variant.displayOrder;
   dto.isFeatured = variant.isFeatured;
-  dto.service = {
-    id: variant.service.id,
-    nameEn: variant.service.nameEn,
-    nameVi: variant.service.nameVi,
-    slug: variant.service.slug,
-  };
   dto.clubs = [...(variant.clubs ?? [])].sort(sortClubs).map((club) => ({
     id: club.id,
     nameEn: club.nameEn,
@@ -185,6 +148,31 @@ export function mapServiceVariantToPublicDetailResponse(
     displayOrder: club.displayOrder,
   }));
 
+  return dto;
+}
+
+export function mapServiceVariantsToPublicResponses(
+  variants: ServiceVariant[],
+  fallbackServiceId?: string,
+): PublicServiceVariantResponseDto[] {
+  return variants.map((variant) =>
+    mapServiceVariantToPublicResponse(variant, fallbackServiceId),
+  );
+}
+
+export function mapServiceVariantToPublicDetailResponse(
+  variant: ServiceVariant,
+): PublicServiceVariantDetailResponseDto {
+  const dto = Object.assign(
+    new PublicServiceVariantDetailResponseDto(),
+    mapServiceVariantToPublicResponse(variant),
+  );
+  dto.service = {
+    id: variant.service.id,
+    nameEn: variant.service.nameEn,
+    nameVi: variant.service.nameVi,
+    slug: variant.service.slug,
+  };
   return dto;
 }
 
@@ -205,7 +193,18 @@ export function mapServiceToPublicResponse(
   dto.imageAsset = mapMediaAssetToPublicSummary(service.imageAsset);
   dto.displayOrder = service.displayOrder;
   dto.isFeatured = service.isFeatured;
-  dto.variants = mapServiceVariantsToPublicResponses(service.variants ?? []);
+  const variantsById = new Map(
+    (service.variants ?? []).map((variant) => [variant.id, variant]),
+  );
+  dto.variants = mapServiceVariantsToPublicResponses(
+    [...variantsById.values()].sort(
+      (left, right) =>
+        left.displayOrder - right.displayOrder ||
+        left.nameEn.localeCompare(right.nameEn) ||
+        left.id.localeCompare(right.id),
+    ),
+    service.id,
+  );
 
   return dto;
 }

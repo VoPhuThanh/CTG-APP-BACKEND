@@ -1,5 +1,9 @@
 import { mapMetadataToResponse } from '@/cores/mappers/metadata.mapper';
 import {
+  mapMediaAssetToPublicSummary,
+  mapMediaAssetToSummary,
+} from '../media-assets/media-assets.mapper';
+import {
   PublicSiteSettingResponseDto,
   SiteSettingResponseDto,
 } from './dtos/site-setting.dto';
@@ -17,8 +21,10 @@ export function mapSiteSettingToResponse(
   dto.labelVi = setting.labelVi ?? null;
   dto.descriptionEn = setting.descriptionEn ?? null;
   dto.descriptionVi = setting.descriptionVi ?? null;
-  dto.value = setting.value;
+  dto.value = setting.value ?? null;
   dto.valueType = setting.valueType;
+  dto.mediaAssetId = setting.mediaAssetId ?? null;
+  dto.mediaAsset = mapMediaAssetToSummary(setting.mediaAsset);
   dto.isPublic = setting.isPublic;
   dto.isEditable = setting.isEditable;
   dto.displayOrder = setting.displayOrder;
@@ -40,8 +46,10 @@ export function mapSiteSettingToPublicResponse(
 
   dto.key = setting.key;
   dto.group = setting.group;
-  dto.value = setting.value;
+  dto.value = setting.value ?? null;
   dto.valueType = setting.valueType;
+  dto.mediaAssetId = setting.mediaAssetId ?? null;
+  dto.mediaAsset = mapMediaAssetToPublicSummary(setting.mediaAsset);
 
   return dto;
 }

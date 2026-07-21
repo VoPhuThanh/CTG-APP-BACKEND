@@ -43,6 +43,24 @@ export class PublicServiceVariantResponseDto {
   })
   imageAsset!: PublicMediaAssetSummaryResponseDto | null;
 
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
+  bannerImageUrl!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: PublicMediaAssetSummaryResponseDto,
+  })
+  bannerImageAsset!: PublicMediaAssetSummaryResponseDto | null;
+
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
+  modelImageUrl!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: PublicMediaAssetSummaryResponseDto,
+  })
+  modelImageAsset!: PublicMediaAssetSummaryResponseDto | null;
+
   @ApiPropertyOptional({ nullable: true })
   durationMinutes!: number | null;
 
@@ -60,6 +78,9 @@ export class PublicServiceVariantResponseDto {
 
   @ApiProperty()
   isFeatured!: boolean;
+
+  @ApiProperty({ type: () => [PublicServiceVariantClubSummaryDto] })
+  clubs!: PublicServiceVariantClubSummaryDto[];
 }
 
 export class PublicServiceResponseDto {
@@ -145,82 +166,7 @@ export class PublicServiceVariantClubSummaryDto {
   displayOrder!: number;
 }
 
-export class PublicServiceVariantDetailResponseDto {
-  @ApiProperty()
-  id!: string;
-
-  @ApiProperty()
-  serviceId!: string;
-
-  @ApiProperty()
-  nameEn!: string;
-
-  @ApiProperty()
-  nameVi!: string;
-
-  @ApiProperty()
-  slug!: string;
-
-  @ApiPropertyOptional({ nullable: true })
-  shortDescriptionEn!: string | null;
-
-  @ApiPropertyOptional({ nullable: true })
-  shortDescriptionVi!: string | null;
-
-  @ApiPropertyOptional({ nullable: true })
-  descriptionEn!: string | null;
-
-  @ApiPropertyOptional({ nullable: true })
-  descriptionVi!: string | null;
-
-  @ApiPropertyOptional({ nullable: true, deprecated: true })
-  imageUrl!: string | null;
-
-  @ApiPropertyOptional({
-    nullable: true,
-    type: PublicMediaAssetSummaryResponseDto,
-  })
-  imageAsset!: PublicMediaAssetSummaryResponseDto | null;
-
-  @ApiPropertyOptional({ nullable: true, deprecated: true })
-  bannerImageUrl!: string | null;
-
-  @ApiPropertyOptional({
-    nullable: true,
-    type: PublicMediaAssetSummaryResponseDto,
-  })
-  bannerImageAsset!: PublicMediaAssetSummaryResponseDto | null;
-
-  @ApiPropertyOptional({ nullable: true, deprecated: true })
-  modelImageUrl!: string | null;
-
-  @ApiPropertyOptional({
-    nullable: true,
-    type: PublicMediaAssetSummaryResponseDto,
-  })
-  modelImageAsset!: PublicMediaAssetSummaryResponseDto | null;
-
-  @ApiPropertyOptional({ nullable: true })
-  durationMinutes!: number | null;
-
-  @ApiPropertyOptional({ nullable: true })
-  caloriesBurnedMin!: number | null;
-
-  @ApiPropertyOptional({ nullable: true })
-  caloriesBurnedMax!: number | null;
-
-  @ApiProperty({ enum: ServiceSkillLevel })
-  skillLevel!: ServiceSkillLevel;
-
-  @ApiProperty()
-  displayOrder!: number;
-
-  @ApiProperty()
-  isFeatured!: boolean;
-
+export class PublicServiceVariantDetailResponseDto extends PublicServiceVariantResponseDto {
   @ApiProperty({ type: PublicServiceVariantServiceSummaryDto })
   service!: PublicServiceVariantServiceSummaryDto;
-
-  @ApiProperty({ type: [PublicServiceVariantClubSummaryDto] })
-  clubs!: PublicServiceVariantClubSummaryDto[];
 }

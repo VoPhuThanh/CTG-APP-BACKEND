@@ -1,4 +1,5 @@
 import { BaseEntityCore } from '@/cores/entities/core-entity';
+import { MediaAsset } from '@/modules/media-assets/entities/media-asset.entity';
 import { User } from '@/modules/users/entities/user.entity';
 import {
   Column,
@@ -35,8 +36,8 @@ export class SiteSetting extends BaseEntityCore {
   @Column({ name: 'description_vi', type: 'text', nullable: true })
   descriptionVi?: string;
 
-  @Column({ type: 'text' })
-  value!: string;
+  @Column({ type: 'text', nullable: true })
+  value!: string | null;
 
   @Column({
     name: 'value_type',
@@ -45,6 +46,21 @@ export class SiteSetting extends BaseEntityCore {
     default: SiteSettingValueType.TEXT,
   })
   valueType!: SiteSettingValueType;
+
+  @Index('IDX_site_settings_media_asset_id')
+  @Column({ name: 'media_asset_id', type: 'uuid', nullable: true })
+  mediaAssetId!: string | null;
+
+  @ManyToOne(() => MediaAsset, {
+    nullable: true,
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  })
+  @JoinColumn({
+    name: 'media_asset_id',
+    foreignKeyConstraintName: 'FK_site_settings_media_asset',
+  })
+  mediaAsset!: MediaAsset | null;
 
   @Column({ name: 'is_public', type: 'boolean', default: false })
   isPublic!: boolean;
