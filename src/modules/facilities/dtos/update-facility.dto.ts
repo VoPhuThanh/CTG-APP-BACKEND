@@ -4,6 +4,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   MaxLength,
   Min,
@@ -41,10 +42,19 @@ export class FacilityUpdateDto {
   @IsString()
   descriptionVi?: string;
 
-  @ApiPropertyOptional({ example: 'https://example.com/sauna.jpg' })
+  @ApiPropertyOptional({
+    example: 'https://example.com/sauna.jpg',
+    deprecated: true,
+    description: 'Legacy fallback only. Prefer coverImageAssetId.',
+  })
   @IsOptional()
   @IsString()
   coverImageUrl?: string;
+
+  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @IsOptional()
+  @IsUUID()
+  coverImageAssetId?: string | null;
 
   @ApiPropertyOptional({ example: true })
   @IsOptional()

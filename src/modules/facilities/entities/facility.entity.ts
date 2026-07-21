@@ -1,5 +1,6 @@
 import { BaseEntityCore } from '@/cores/entities/core-entity';
 import { Club } from '@/modules/clubs/entities/club.entity';
+import { MediaAsset } from '@/modules/media-assets/entities/media-asset.entity';
 import { User } from '@/modules/users/entities/user.entity';
 import {
   Column,
@@ -34,6 +35,21 @@ export class Facility extends BaseEntityCore {
 
   @Column({ name: 'cover_image_url', type: 'text', nullable: true })
   coverImageUrl?: string;
+
+  @Index('IDX_facilities_cover_image_asset_id')
+  @Column({ name: 'cover_image_asset_id', type: 'uuid', nullable: true })
+  coverImageAssetId!: string | null;
+
+  @ManyToOne(() => MediaAsset, {
+    nullable: true,
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  })
+  @JoinColumn({
+    name: 'cover_image_asset_id',
+    foreignKeyConstraintName: 'FK_facilities_cover_image_asset',
+  })
+  coverImageAsset!: MediaAsset | null;
 
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive!: boolean;

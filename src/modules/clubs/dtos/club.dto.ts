@@ -1,6 +1,8 @@
 import { MetadataResponseDto } from '@/cores/dtos/metadata.dto';
+import { MediaAssetSummaryResponseDto } from '@/modules/media-assets/dtos/media-asset.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ClubStatus } from '../enums/club.enum';
+import { ClubGalleryMediaResponseDto } from './club-gallery-media.dto';
 
 export class ClubFacilitySummaryDto {
   @ApiProperty()
@@ -76,11 +78,20 @@ export class ClubResponseDto {
   @ApiPropertyOptional({ nullable: true })
   descriptionVi!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
   coverImageUrl!: string | null;
 
-  @ApiProperty({ type: [String] })
+  @ApiPropertyOptional({ nullable: true, format: 'uuid' })
+  coverImageAssetId!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, type: MediaAssetSummaryResponseDto })
+  coverImageAsset!: MediaAssetSummaryResponseDto | null;
+
+  @ApiProperty({ type: [String], deprecated: true })
   galleryImageUrls!: string[];
+
+  @ApiProperty({ type: [ClubGalleryMediaResponseDto] })
+  galleryMedia!: ClubGalleryMediaResponseDto[];
 
   @ApiProperty({ enum: ClubStatus })
   status!: ClubStatus;

@@ -10,12 +10,16 @@ import {
 } from '@/cores/pagination/pagination-utils';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, type Repository } from 'typeorm';
+import { In, type EntityManager, type Repository } from 'typeorm';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
 import { Facility } from '../facilities/entities/facility.entity';
 import { Service } from '../services/entities/service.entity';
 import { User } from '../users/entities/user.entity';
+import type { MediaAsset } from '../media-assets/entities/media-asset.entity';
+import { MediaAssetReferenceSlot } from '../media-assets/enums/media-asset-reference.enum';
+import { MediaAssetUsage } from '../media-assets/enums/media-asset.enum';
+import { MediaAssetReferencesService } from '../media-assets/media-asset-references.service';
 import { ClubStatus } from './enums/club.enum';
 import type { ClubResponseDto } from './dtos/club.dto';
 import type { ClubCreateDto } from './dtos/create-club.dto';
@@ -24,12 +28,15 @@ import { Club } from './entities/club.entity';
 import {
   mapClubToPublicResponse,
   mapClubToResponse,
-  mapClubsToPublicResponses,
+  mapClubsToPublicListResponses,
   mapClubsToResponses,
 } from './clubs.mapper';
 import { generateSlug } from '@/cores/utils/slug.util';
 import { ServiceStatus } from '../services/enums/service.enum';
 import { PublicClubResponseDto } from './dtos/public-club.dto';
+import type { PublicClubListResponseDto } from './dtos/public-club.dto';
+import type { ClubGalleryMediaInputDto } from './dtos/club-gallery-media.dto';
+import { ClubGalleryMediaAsset } from './entities/club-gallery-media-asset.entity';
 
 @Injectable()
 export class ClubsService {
@@ -45,6 +52,8 @@ export class ClubsService {
 
     @InjectRepository(Service)
     private readonly serviceRepository: Repository<Service>,
+
+    private readonly mediaAssetReferencesService: MediaAssetReferencesService,
   ) {}
 
   async findAll(
@@ -101,6 +110,9 @@ export class ClubsService {
         ? []
         : await this.clubRepository
             .createQueryBuilder('club')
+            .leftJoinAndSelect('club.coverImageAsset', 'coverImageAsset')
+            .leftJoinAndSelect('club.galleryMedia', 'galleryMedia')
+            .leftJoinAndSelect('galleryMedia.mediaAsset', 'galleryMediaAsset')
             .leftJoinAndSelect('club.facilities', 'facility')
             .leftJoinAndSelect('club.services', 'service')
             .leftJoinAndSelect('club.createdBy', 'createdBy')
@@ -142,33 +154,48 @@ export class ClubsService {
     );
     const services = await this.findServicesByIdsOrThrow(dto.serviceIds ?? []);
 
-    const club = this.clubRepository.create({
-      nameEn: dto.nameEn,
-      nameVi: dto.nameVi,
-      slug,
-      addressEn: dto.addressEn,
-      addressVi: dto.addressVi,
-      openingHoursTextEn: dto.openingHoursTextEn,
-      openingHoursTextVi: dto.openingHoursTextVi,
-      phoneNumbers: dto.phoneNumbers ?? [],
-      shortDescriptionEn: dto.shortDescriptionEn,
-      shortDescriptionVi: dto.shortDescriptionVi,
-      descriptionEn: dto.descriptionEn,
-      descriptionVi: dto.descriptionVi,
-      coverImageUrl: dto.coverImageUrl,
-      galleryImageUrls: dto.galleryImageUrls ?? [],
-      status: dto.status ?? ClubStatus.DRAFT,
-      displayOrder: dto.displayOrder ?? 0,
-      isFeatured: dto.isFeatured ?? false,
-      facilities,
-      services,
-      createdBy: creator,
-      updatedBy: creator,
+    let createdClubId = '';
+    await this.clubRepository.manager.transaction(async (manager) => {
+      const [coverImageAsset, galleryMedia] = await Promise.all([
+        this.findImageAssetByIdOrThrow(
+          dto.coverImageAssetId,
+          MediaAssetReferenceSlot.CLUB_COVER_IMAGE,
+          manager,
+        ),
+        this.validateGalleryMedia(dto.galleryMedia ?? [], manager),
+      ]);
+      const repository = manager.getRepository(Club);
+      const club = repository.create({
+        nameEn: dto.nameEn,
+        nameVi: dto.nameVi,
+        slug,
+        addressEn: dto.addressEn,
+        addressVi: dto.addressVi,
+        openingHoursTextEn: dto.openingHoursTextEn,
+        openingHoursTextVi: dto.openingHoursTextVi,
+        phoneNumbers: dto.phoneNumbers ?? [],
+        shortDescriptionEn: dto.shortDescriptionEn,
+        shortDescriptionVi: dto.shortDescriptionVi,
+        descriptionEn: dto.descriptionEn,
+        descriptionVi: dto.descriptionVi,
+        coverImageUrl: dto.coverImageUrl,
+        coverImageAsset,
+        galleryImageUrls: dto.galleryImageUrls ?? [],
+        status: dto.status ?? ClubStatus.DRAFT,
+        displayOrder: dto.displayOrder ?? 0,
+        isFeatured: dto.isFeatured ?? false,
+        facilities,
+        services,
+        createdBy: creator,
+        updatedBy: creator,
+      });
+
+      const savedClub = await repository.save(club);
+      await this.replaceGalleryMedia(savedClub, galleryMedia, manager);
+      createdClubId = savedClub.id;
     });
 
-    await this.clubRepository.save(club);
-
-    return this.findOne(club.id);
+    return this.findOne(createdClubId);
   }
 
   async update(
@@ -239,7 +266,24 @@ export class ClubsService {
 
     club.updatedBy = updater;
 
-    await this.clubRepository.save(club);
+    await this.clubRepository.manager.transaction(async (manager) => {
+      if (dto.coverImageAssetId !== undefined) {
+        club.coverImageAsset = await this.findImageAssetByIdOrThrow(
+          dto.coverImageAssetId,
+          MediaAssetReferenceSlot.CLUB_COVER_IMAGE,
+          manager,
+        );
+      }
+
+      const savedClub = await manager.getRepository(Club).save(club);
+      if (dto.galleryMedia !== undefined) {
+        const galleryMedia = await this.validateGalleryMedia(
+          dto.galleryMedia,
+          manager,
+        );
+        await this.replaceGalleryMedia(savedClub, galleryMedia, manager);
+      }
+    });
 
     return this.findOne(club.id);
   }
@@ -263,10 +307,18 @@ export class ClubsService {
         id,
       },
       relations: {
+        coverImageAsset: true,
+        galleryMedia: { mediaAsset: true },
         facilities: true,
         services: true,
         createdBy: true,
         updatedBy: true,
+      },
+      order: {
+        galleryMedia: {
+          displayOrder: 'ASC',
+          id: 'ASC',
+        },
       },
     });
 
@@ -295,6 +347,68 @@ export class ClubsService {
     }
 
     return user;
+  }
+
+  private async findImageAssetByIdOrThrow(
+    id: string | null | undefined,
+    slot: MediaAssetReferenceSlot,
+    manager: EntityManager,
+  ): Promise<MediaAsset | null> {
+    const result =
+      await this.mediaAssetReferencesService.validateImageSelection(id, {
+        manager,
+        slot,
+        compatibleUsages: [MediaAssetUsage.GENERAL, MediaAssetUsage.CLUB],
+      });
+
+    return result.asset;
+  }
+
+  private async validateGalleryMedia(
+    items: ClubGalleryMediaInputDto[],
+    manager: EntityManager,
+  ): Promise<Array<{ mediaAsset: MediaAsset; displayOrder: number }>> {
+    if (items.some((item, index) => item.displayOrder !== index)) {
+      throw AppError.badRequest(AppErrorCode.CLUB_GALLERY_ORDER_INVALID);
+    }
+
+    const selections =
+      await this.mediaAssetReferencesService.validateImageSelections(
+        items.map((item) => item.mediaAssetId),
+        {
+          manager,
+          slot: MediaAssetReferenceSlot.CLUB_GALLERY_IMAGE,
+          compatibleUsages: [MediaAssetUsage.GENERAL, MediaAssetUsage.CLUB],
+        },
+      );
+
+    return items.map((item, index) => ({
+      mediaAsset: selections[index].asset!,
+      displayOrder: item.displayOrder,
+    }));
+  }
+
+  private async replaceGalleryMedia(
+    club: Club,
+    items: Array<{ mediaAsset: MediaAsset; displayOrder: number }>,
+    manager: EntityManager,
+  ): Promise<void> {
+    const repository = manager.getRepository(ClubGalleryMediaAsset);
+    await repository.delete({ clubId: club.id });
+
+    if (items.length === 0) return;
+
+    await repository.save(
+      items.map((item) =>
+        repository.create({
+          club,
+          clubId: club.id,
+          mediaAsset: item.mediaAsset,
+          mediaAssetId: item.mediaAsset.id,
+          displayOrder: item.displayOrder,
+        }),
+      ),
+    );
   }
 
   private async ensureClubSlugIsAvailable(slug: string): Promise<void> {
@@ -352,7 +466,7 @@ export class ClubsService {
 
     return services;
   }
-  async findPublicClubs(): Promise<PublicClubResponseDto[]> {
+  async findPublicClubs(): Promise<PublicClubListResponseDto[]> {
     const clubs = await this.clubRepository.find({
       where: {
         status: ClubStatus.PUBLISHED,
@@ -362,12 +476,13 @@ export class ClubsService {
         createdAt: 'DESC',
         id: 'ASC',
       },
+      relations: { coverImageAsset: true },
     });
 
-    return mapClubsToPublicResponses(clubs);
+    return mapClubsToPublicListResponses(clubs);
   }
 
-  async findPublicFeaturedClubs(): Promise<PublicClubResponseDto[]> {
+  async findPublicFeaturedClubs(): Promise<PublicClubListResponseDto[]> {
     const clubs = await this.clubRepository.find({
       where: {
         status: ClubStatus.PUBLISHED,
@@ -379,14 +494,18 @@ export class ClubsService {
         id: 'ASC',
       },
       take: 3,
+      relations: { coverImageAsset: true },
     });
 
-    return mapClubsToPublicResponses(clubs);
+    return mapClubsToPublicListResponses(clubs);
   }
 
   async findPublicClubBySlug(slug: string): Promise<PublicClubResponseDto> {
     const club = await this.clubRepository
       .createQueryBuilder('club')
+      .leftJoinAndSelect('club.coverImageAsset', 'coverImageAsset')
+      .leftJoinAndSelect('club.galleryMedia', 'galleryMedia')
+      .leftJoinAndSelect('galleryMedia.mediaAsset', 'galleryMediaAsset')
       .leftJoinAndSelect(
         'club.facilities',
         'facility',
@@ -395,6 +514,7 @@ export class ClubsService {
           facilityIsActive: true,
         },
       )
+      .leftJoinAndSelect('facility.coverImageAsset', 'facilityCoverImageAsset')
       .leftJoinAndSelect(
         'club.services',
         'service',
@@ -403,6 +523,7 @@ export class ClubsService {
           serviceStatus: ServiceStatus.PUBLISHED,
         },
       )
+      .leftJoinAndSelect('service.imageAsset', 'serviceImageAsset')
       .where('club.slug = :slug', { slug })
       .andWhere('club.status = :clubStatus', {
         clubStatus: ClubStatus.PUBLISHED,
@@ -411,6 +532,8 @@ export class ClubsService {
       .addOrderBy('facility.nameEn', 'ASC')
       .addOrderBy('service.displayOrder', 'ASC')
       .addOrderBy('service.nameEn', 'ASC')
+      .addOrderBy('galleryMedia.displayOrder', 'ASC')
+      .addOrderBy('galleryMedia.id', 'ASC')
       .getOne();
 
     if (!club) {

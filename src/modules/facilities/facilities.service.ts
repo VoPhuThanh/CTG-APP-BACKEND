@@ -10,10 +10,14 @@ import {
 } from '@/cores/pagination/pagination-utils';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { Repository } from 'typeorm';
+import type { EntityManager, Repository } from 'typeorm';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
 import { User } from '../users/entities/user.entity';
+import type { MediaAsset } from '../media-assets/entities/media-asset.entity';
+import { MediaAssetReferenceSlot } from '../media-assets/enums/media-asset-reference.enum';
+import { MediaAssetUsage } from '../media-assets/enums/media-asset.enum';
+import { MediaAssetReferencesService } from '../media-assets/media-asset-references.service';
 import type { FacilityCreateDto } from './dtos/create-facility.dto';
 import type { FacilityResponseDto } from './dtos/facility.dto';
 import type { FacilityUpdateDto } from './dtos/update-facility.dto';
@@ -35,6 +39,8 @@ export class FacilitiesService {
 
     @InjectRepository(Facility)
     private readonly facilityRepository: Repository<Facility>,
+
+    private readonly mediaAssetReferencesService: MediaAssetReferencesService,
   ) {}
 
   async findAll(
@@ -46,6 +52,7 @@ export class FacilitiesService {
 
     const queryBuilder = this.facilityRepository
       .createQueryBuilder('facility')
+      .leftJoinAndSelect('facility.coverImageAsset', 'coverImageAsset')
       .leftJoinAndSelect('facility.createdBy', 'createdBy')
       .leftJoinAndSelect('facility.updatedBy', 'updatedBy');
 
@@ -104,22 +111,31 @@ export class FacilitiesService {
 
     await this.ensureFacilitySlugIsAvailable(slug);
 
-    const facility = this.facilityRepository.create({
-      nameEn: dto.nameEn,
-      nameVi: dto.nameVi,
-      slug,
-      descriptionEn: dto.descriptionEn,
-      descriptionVi: dto.descriptionVi,
-      coverImageUrl: dto.coverImageUrl,
-      isActive: dto.isActive ?? true,
-      displayOrder: dto.displayOrder ?? 0,
-      createdBy: creator,
-      updatedBy: creator,
+    let createdFacilityId = '';
+    await this.facilityRepository.manager.transaction(async (manager) => {
+      const coverImageAsset = await this.findImageAssetByIdOrThrow(
+        dto.coverImageAssetId,
+        manager,
+      );
+      const repository = manager.getRepository(Facility);
+      const facility = repository.create({
+        nameEn: dto.nameEn,
+        nameVi: dto.nameVi,
+        slug,
+        descriptionEn: dto.descriptionEn,
+        descriptionVi: dto.descriptionVi,
+        coverImageUrl: dto.coverImageUrl,
+        coverImageAsset,
+        isActive: dto.isActive ?? true,
+        displayOrder: dto.displayOrder ?? 0,
+        createdBy: creator,
+        updatedBy: creator,
+      });
+
+      createdFacilityId = (await repository.save(facility)).id;
     });
 
-    await this.facilityRepository.save(facility);
-
-    return this.findOne(facility.id);
+    return this.findOne(createdFacilityId);
   }
 
   async update(
@@ -165,7 +181,16 @@ export class FacilitiesService {
 
     facility.updatedBy = updater;
 
-    await this.facilityRepository.save(facility);
+    await this.facilityRepository.manager.transaction(async (manager) => {
+      if (dto.coverImageAssetId !== undefined) {
+        facility.coverImageAsset = await this.findImageAssetByIdOrThrow(
+          dto.coverImageAssetId,
+          manager,
+        );
+      }
+
+      await manager.getRepository(Facility).save(facility);
+    });
 
     return this.findOne(facility.id);
   }
@@ -189,6 +214,7 @@ export class FacilitiesService {
         id,
       },
       relations: {
+        coverImageAsset: true,
         createdBy: true,
         updatedBy: true,
       },
@@ -221,6 +247,20 @@ export class FacilitiesService {
     return user;
   }
 
+  private async findImageAssetByIdOrThrow(
+    id: string | null | undefined,
+    manager: EntityManager,
+  ): Promise<MediaAsset | null> {
+    const result =
+      await this.mediaAssetReferencesService.validateImageSelection(id, {
+        manager,
+        slot: MediaAssetReferenceSlot.FACILITY_COVER_IMAGE,
+        compatibleUsages: [MediaAssetUsage.GENERAL, MediaAssetUsage.CLUB],
+      });
+
+    return result.asset;
+  }
+
   private async ensureFacilitySlugIsAvailable(slug: string): Promise<void> {
     const existingFacility = await this.facilityRepository.findOne({
       where: {
@@ -242,6 +282,7 @@ export class FacilitiesService {
         createdAt: 'DESC',
         id: 'ASC',
       },
+      relations: { coverImageAsset: true },
     });
 
     return mapFacilitiesToPublicResponses(facilities);
@@ -255,6 +296,7 @@ export class FacilitiesService {
         slug,
         isActive: true,
       },
+      relations: { coverImageAsset: true },
     });
 
     if (!facility) {

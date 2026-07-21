@@ -5,9 +5,13 @@ import { Facility } from './entities/facility.entity';
 import { FacilitiesController } from './facilities.controller';
 import { FacilitiesService } from './facilities.service';
 import { Club } from '../clubs/entities/club.entity';
+import { MediaAssetsModule } from '../media-assets/media-assets.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Facility, User, Club])],
+  imports: [
+    MediaAssetsModule,
+    TypeOrmModule.forFeature([Facility, User, Club]),
+  ],
   controllers: [FacilitiesController],
   providers: [FacilitiesService],
 })

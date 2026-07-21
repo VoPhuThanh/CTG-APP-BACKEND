@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   ArrayUnique,
   IsArray,
@@ -11,8 +12,10 @@ import {
   Matches,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
 import { ClubStatus } from '../enums/club.enum';
+import { ClubGalleryMediaInputDto } from './club-gallery-media.dto';
 
 export class ClubCreateDto {
   @ApiProperty({ example: 'CTG Fitness District 1' })
@@ -84,10 +87,19 @@ export class ClubCreateDto {
   @IsString()
   descriptionVi?: string;
 
-  @ApiPropertyOptional({ example: 'https://example.com/club-cover.jpg' })
+  @ApiPropertyOptional({
+    example: 'https://example.com/club-cover.jpg',
+    deprecated: true,
+    description: 'Legacy fallback only. Prefer coverImageAssetId.',
+  })
   @IsOptional()
   @IsString()
   coverImageUrl?: string;
+
+  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @IsOptional()
+  @IsUUID()
+  coverImageAssetId?: string | null;
 
   @ApiPropertyOptional({
     example: [
@@ -100,6 +112,19 @@ export class ClubCreateDto {
   @IsArray()
   @IsString({ each: true })
   galleryImageUrls?: string[];
+
+  @ApiPropertyOptional({
+    type: [ClubGalleryMediaInputDto],
+    description:
+      'Ordered managed gallery. Asset IDs and displayOrder values must be unique; orders must be consecutive from 0.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique((item: ClubGalleryMediaInputDto) => item.mediaAssetId)
+  @ArrayUnique((item: ClubGalleryMediaInputDto) => item.displayOrder)
+  @ValidateNested({ each: true })
+  @Type(() => ClubGalleryMediaInputDto)
+  galleryMedia?: ClubGalleryMediaInputDto[];
 
   @ApiPropertyOptional({ enum: ClubStatus, default: ClubStatus.DRAFT })
   @IsOptional()

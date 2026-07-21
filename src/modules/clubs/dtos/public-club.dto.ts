@@ -1,4 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PublicMediaAssetSummaryResponseDto } from '@/modules/media-assets/dtos/media-asset.dto';
+import { PublicClubGalleryMediaResponseDto } from './club-gallery-media.dto';
 
 export class PublicClubFacilitySummaryDto {
   @ApiProperty()
@@ -19,8 +21,14 @@ export class PublicClubFacilitySummaryDto {
   @ApiPropertyOptional({ nullable: true })
   descriptionVi!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
   coverImageUrl!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: PublicMediaAssetSummaryResponseDto,
+  })
+  coverImageAsset!: PublicMediaAssetSummaryResponseDto | null;
 
   @ApiProperty()
   displayOrder!: number;
@@ -39,14 +47,20 @@ export class PublicClubServiceSummaryDto {
   @ApiProperty()
   slug!: string;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
   imageUrl!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: PublicMediaAssetSummaryResponseDto,
+  })
+  imageAsset!: PublicMediaAssetSummaryResponseDto | null;
 
   @ApiProperty()
   displayOrder!: number;
 }
 
-export class PublicClubResponseDto {
+export class PublicClubListResponseDto {
   @ApiProperty()
   id!: string;
 
@@ -86,10 +100,16 @@ export class PublicClubResponseDto {
   @ApiPropertyOptional({ nullable: true })
   descriptionVi!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
   coverImageUrl!: string | null;
 
-  @ApiProperty({ type: [String] })
+  @ApiPropertyOptional({
+    nullable: true,
+    type: PublicMediaAssetSummaryResponseDto,
+  })
+  coverImageAsset!: PublicMediaAssetSummaryResponseDto | null;
+
+  @ApiProperty({ type: [String], deprecated: true })
   galleryImageUrls!: string[];
 
   @ApiProperty()
@@ -103,4 +123,9 @@ export class PublicClubResponseDto {
 
   @ApiProperty({ type: [PublicClubServiceSummaryDto] })
   services!: PublicClubServiceSummaryDto[];
+}
+
+export class PublicClubResponseDto extends PublicClubListResponseDto {
+  @ApiProperty({ type: [PublicClubGalleryMediaResponseDto] })
+  galleryMedia!: PublicClubGalleryMediaResponseDto[];
 }

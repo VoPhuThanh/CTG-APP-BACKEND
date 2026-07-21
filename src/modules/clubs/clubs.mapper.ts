@@ -1,4 +1,8 @@
 import { mapMetadataToResponse } from '@/cores/mappers/metadata.mapper';
+import {
+  mapMediaAssetToPublicSummary,
+  mapMediaAssetToSummary,
+} from '../media-assets/media-assets.mapper';
 import { Facility } from '../facilities/entities/facility.entity';
 import { Service } from '../services/entities/service.entity';
 import {
@@ -9,6 +13,7 @@ import {
 import { Club } from './entities/club.entity';
 import {
   PublicClubFacilitySummaryDto,
+  PublicClubListResponseDto,
   PublicClubResponseDto,
   PublicClubServiceSummaryDto,
 } from './dtos/public-club.dto';
@@ -63,7 +68,21 @@ export function mapClubToResponse(club: Club): ClubResponseDto {
   dto.descriptionEn = club.descriptionEn ?? null;
   dto.descriptionVi = club.descriptionVi ?? null;
   dto.coverImageUrl = club.coverImageUrl ?? null;
+  dto.coverImageAssetId = club.coverImageAssetId ?? null;
+  dto.coverImageAsset = mapMediaAssetToSummary(club.coverImageAsset);
   dto.galleryImageUrls = club.galleryImageUrls ?? [];
+  dto.galleryMedia = [...(club.galleryMedia ?? [])]
+    .sort(
+      (left, right) =>
+        left.displayOrder - right.displayOrder ||
+        left.id.localeCompare(right.id),
+    )
+    .map((galleryItem) => ({
+      id: galleryItem.id,
+      mediaAssetId: galleryItem.mediaAssetId,
+      displayOrder: galleryItem.displayOrder,
+      mediaAsset: mapMediaAssetToSummary(galleryItem.mediaAsset)!,
+    }));
   dto.status = club.status;
   dto.displayOrder = club.displayOrder;
   dto.isFeatured = club.isFeatured;
@@ -97,6 +116,7 @@ function mapClubFacilityToPublicSummary(
   dto.descriptionEn = facility.descriptionEn ?? null;
   dto.descriptionVi = facility.descriptionVi ?? null;
   dto.coverImageUrl = facility.coverImageUrl ?? null;
+  dto.coverImageAsset = mapMediaAssetToPublicSummary(facility.coverImageAsset);
   dto.displayOrder = facility.displayOrder;
 
   return dto;
@@ -112,12 +132,15 @@ function mapClubServiceToPublicSummary(
   dto.nameVi = service.nameVi;
   dto.slug = service.slug;
   dto.imageUrl = service.imageUrl ?? null;
+  dto.imageAsset = mapMediaAssetToPublicSummary(service.imageAsset);
   dto.displayOrder = service.displayOrder;
 
   return dto;
 }
-export function mapClubToPublicResponse(club: Club): PublicClubResponseDto {
-  const dto = new PublicClubResponseDto();
+export function mapClubToPublicListResponse(
+  club: Club,
+): PublicClubListResponseDto {
+  const dto = new PublicClubListResponseDto();
 
   dto.id = club.id;
   dto.nameEn = club.nameEn;
@@ -133,6 +156,7 @@ export function mapClubToPublicResponse(club: Club): PublicClubResponseDto {
   dto.descriptionEn = club.descriptionEn ?? null;
   dto.descriptionVi = club.descriptionVi ?? null;
   dto.coverImageUrl = club.coverImageUrl ?? null;
+  dto.coverImageAsset = mapMediaAssetToPublicSummary(club.coverImageAsset);
   dto.galleryImageUrls = club.galleryImageUrls ?? [];
   dto.displayOrder = club.displayOrder;
   dto.isFeatured = club.isFeatured;
@@ -148,8 +172,29 @@ export function mapClubToPublicResponse(club: Club): PublicClubResponseDto {
   return dto;
 }
 
-export function mapClubsToPublicResponses(
+export function mapClubToPublicResponse(club: Club): PublicClubResponseDto {
+  const dto = Object.assign(
+    new PublicClubResponseDto(),
+    mapClubToPublicListResponse(club),
+  );
+
+  dto.galleryMedia = [...(club.galleryMedia ?? [])]
+    .sort(
+      (left, right) =>
+        left.displayOrder - right.displayOrder ||
+        left.id.localeCompare(right.id),
+    )
+    .map((galleryItem) => ({
+      id: galleryItem.id,
+      displayOrder: galleryItem.displayOrder,
+      mediaAsset: mapMediaAssetToPublicSummary(galleryItem.mediaAsset)!,
+    }));
+
+  return dto;
+}
+
+export function mapClubsToPublicListResponses(
   clubs: Club[],
-): PublicClubResponseDto[] {
-  return clubs.map(mapClubToPublicResponse);
+): PublicClubListResponseDto[] {
+  return clubs.map(mapClubToPublicListResponse);
 }

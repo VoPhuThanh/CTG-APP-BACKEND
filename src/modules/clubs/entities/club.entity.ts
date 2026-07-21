@@ -1,4 +1,5 @@
 import { BaseEntityCore } from '@/cores/entities/core-entity';
+import { MediaAsset } from '@/modules/media-assets/entities/media-asset.entity';
 import { Facility } from '@/modules/facilities/entities/facility.entity';
 import { Service } from '@/modules/services/entities/service.entity';
 import { ServiceVariant } from '@/modules/services/entities/service-variant.entity';
@@ -11,9 +12,11 @@ import {
   JoinTable,
   ManyToMany,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { ClubStatus } from '../enums/club.enum';
+import { ClubGalleryMediaAsset } from './club-gallery-media-asset.entity';
 
 @Entity('clubs')
 export class Club extends BaseEntityCore {
@@ -60,8 +63,26 @@ export class Club extends BaseEntityCore {
   @Column({ name: 'cover_image_url', type: 'text', nullable: true })
   coverImageUrl?: string;
 
+  @Index('IDX_clubs_cover_image_asset_id')
+  @Column({ name: 'cover_image_asset_id', type: 'uuid', nullable: true })
+  coverImageAssetId!: string | null;
+
+  @ManyToOne(() => MediaAsset, {
+    nullable: true,
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  })
+  @JoinColumn({
+    name: 'cover_image_asset_id',
+    foreignKeyConstraintName: 'FK_clubs_cover_image_asset',
+  })
+  coverImageAsset!: MediaAsset | null;
+
   @Column({ name: 'gallery_image_urls', type: 'jsonb', default: [] })
   galleryImageUrls!: string[];
+
+  @OneToMany(() => ClubGalleryMediaAsset, (galleryItem) => galleryItem.club)
+  galleryMedia!: ClubGalleryMediaAsset[];
 
   @Column({
     type: 'enum',

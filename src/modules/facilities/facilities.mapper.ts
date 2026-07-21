@@ -1,4 +1,8 @@
 import { mapMetadataToResponse } from '@/cores/mappers/metadata.mapper';
+import {
+  mapMediaAssetToPublicSummary,
+  mapMediaAssetToSummary,
+} from '../media-assets/media-assets.mapper';
 import { FacilityResponseDto } from './dtos/facility.dto';
 import { Facility } from './entities/facility.entity';
 import { PublicFacilityResponseDto } from './dtos/public-facility.dto';
@@ -13,6 +17,8 @@ export function mapFacilityToResponse(facility: Facility): FacilityResponseDto {
   dto.descriptionEn = facility.descriptionEn ?? null;
   dto.descriptionVi = facility.descriptionVi ?? null;
   dto.coverImageUrl = facility.coverImageUrl ?? null;
+  dto.coverImageAssetId = facility.coverImageAssetId ?? null;
+  dto.coverImageAsset = mapMediaAssetToSummary(facility.coverImageAsset);
   dto.isActive = facility.isActive;
   dto.displayOrder = facility.displayOrder;
   dto.metadata = mapMetadataToResponse(facility);
@@ -37,6 +43,7 @@ export function mapFacilityToPublicResponse(
   dto.descriptionEn = facility.descriptionEn ?? null;
   dto.descriptionVi = facility.descriptionVi ?? null;
   dto.coverImageUrl = facility.coverImageUrl ?? null;
+  dto.coverImageAsset = mapMediaAssetToPublicSummary(facility.coverImageAsset);
   dto.displayOrder = facility.displayOrder;
 
   return dto;
