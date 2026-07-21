@@ -29,6 +29,8 @@ export const AppErrorMessage: Record<AppErrorCode, string> = {
 
   [AppErrorCode.CLUB_NOT_FOUND]: 'Club not found.',
   [AppErrorCode.CLUB_SLUG_ALREADY_EXISTS]: 'Club slug already exists.',
+  [AppErrorCode.CLUB_GALLERY_ORDER_INVALID]:
+    'Club gallery displayOrder values must be unique and consecutive from zero.',
 
   [AppErrorCode.MEMBERSHIP_LEVEL_NOT_FOUND]: 'Membership level not found.',
   [AppErrorCode.MEMBERSHIP_LEVEL_SLUG_ALREADY_EXISTS]:

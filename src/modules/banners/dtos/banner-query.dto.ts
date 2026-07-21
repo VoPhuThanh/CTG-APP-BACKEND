@@ -1,5 +1,5 @@
 import { PaginationQueryDto } from '@/cores/pagination/pagination-query.dto';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsOptional } from 'class-validator';
 import { BannerPlacement, BannerStatus } from '../enums/banner.enum';
 
@@ -13,4 +13,13 @@ export class BannerQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsEnum(BannerStatus)
   status?: BannerStatus;
+}
+
+export class PublicBannerPlacementQueryDto {
+  @ApiProperty({
+    enum: BannerPlacement,
+    description: 'Canonical public page or carousel placement.',
+  })
+  @IsEnum(BannerPlacement)
+  placement!: BannerPlacement;
 }

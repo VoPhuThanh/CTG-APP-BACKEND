@@ -1,10 +1,11 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsDateString,
   IsEnum,
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -47,14 +48,33 @@ export class BannerCreateDto {
   @IsString()
   subtitleVi?: string;
 
-  @ApiProperty({ example: 'https://example.com/banner-desktop.jpg' })
+  @ApiPropertyOptional({
+    example: 'https://example.com/banner-desktop.jpg',
+    deprecated: true,
+    description: 'Legacy fallback only. Prefer imageAssetId.',
+  })
+  @IsOptional()
   @IsString()
-  imageUrl!: string;
+  imageUrl?: string;
 
-  @ApiPropertyOptional({ example: 'https://example.com/banner-mobile.jpg' })
+  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @IsOptional()
+  @IsUUID()
+  imageAssetId?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'https://example.com/banner-mobile.jpg',
+    deprecated: true,
+    description: 'Legacy fallback only. Prefer mobileImageAssetId.',
+  })
   @IsOptional()
   @IsString()
   mobileImageUrl?: string;
+
+  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @IsOptional()
+  @IsUUID()
+  mobileImageAssetId?: string | null;
 
   @ApiPropertyOptional({ example: '/en/memberships' })
   @IsOptional()

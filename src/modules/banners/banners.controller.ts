@@ -20,7 +20,10 @@ import { CurrentUser } from '@/cores/decorators/current-user.decorators';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
 import { BannersService } from './banners.service';
-import { BannerQueryDto } from './dtos/banner-query.dto';
+import {
+  BannerQueryDto,
+  PublicBannerPlacementQueryDto,
+} from './dtos/banner-query.dto';
 import { BannerCreateDto } from './dtos/create-banner.dto';
 import { BannerUpdateDto } from './dtos/update-banner.dto';
 import { BannerPlacement, BannerStatus } from './enums/banner.enum';
@@ -35,6 +38,14 @@ export class BannersController {
   @Get('public/hero-carousel')
   findPublicHeroCarousel() {
     return this.bannersService.findPublicHeroCarousel();
+  }
+
+  @ApiOperation({
+    summary: 'Find active public banners for a canonical placement',
+  })
+  @Get('public')
+  findPublicByPlacement(@Query() query: PublicBannerPlacementQueryDto) {
+    return this.bannersService.findPublicByPlacement(query.placement);
   }
 
   @ApiOperation({ summary: 'Find all banners' })

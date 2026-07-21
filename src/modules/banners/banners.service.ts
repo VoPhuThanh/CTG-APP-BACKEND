@@ -9,10 +9,14 @@ import {
 } from '@/cores/pagination/pagination-utils';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { Repository } from 'typeorm';
+import type { EntityManager, Repository } from 'typeorm';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
 import { User } from '../users/entities/user.entity';
+import type { MediaAsset } from '../media-assets/entities/media-asset.entity';
+import { MediaAssetReferenceSlot } from '../media-assets/enums/media-asset-reference.enum';
+import { MediaAssetUsage } from '../media-assets/enums/media-asset.enum';
+import { MediaAssetReferencesService } from '../media-assets/media-asset-references.service';
 import {
   mapBannerToResponse,
   mapBannersToPublicResponses,
@@ -40,6 +44,8 @@ export class BannersService {
 
     @InjectRepository(Banner)
     private readonly bannerRepository: Repository<Banner>,
+
+    private readonly mediaAssetReferencesService: MediaAssetReferencesService,
   ) {}
 
   async findAll(
@@ -51,6 +57,8 @@ export class BannersService {
 
     const queryBuilder = this.bannerRepository
       .createQueryBuilder('banner')
+      .leftJoinAndSelect('banner.imageAsset', 'imageAsset')
+      .leftJoinAndSelect('banner.mobileImageAsset', 'mobileImageAsset')
       .leftJoinAndSelect('banner.createdBy', 'createdBy')
       .leftJoinAndSelect('banner.updatedBy', 'updatedBy');
 
@@ -110,12 +118,20 @@ export class BannersService {
   }
 
   async findPublicHeroCarousel(): Promise<PublicBannerResponseDto[]> {
+    return this.findPublicByPlacement(BannerPlacement.HOMEPAGE_CAROUSEL);
+  }
+
+  async findPublicByPlacement(
+    placement: BannerPlacement,
+  ): Promise<PublicBannerResponseDto[]> {
     const now = new Date();
 
     const banners = await this.bannerRepository
       .createQueryBuilder('banner')
+      .leftJoinAndSelect('banner.imageAsset', 'imageAsset')
+      .leftJoinAndSelect('banner.mobileImageAsset', 'mobileImageAsset')
       .where('banner.placement = :placement', {
-        placement: BannerPlacement.HOMEPAGE_CAROUSEL,
+        placement,
       })
       .andWhere('banner.status = :status', {
         status: BannerStatus.PUBLISHED,
@@ -151,28 +167,48 @@ export class BannersService {
 
     this.validateDateRange(publishedAt, expiredAt);
 
-    const banner = this.bannerRepository.create({
-      placement: dto.placement ?? BannerPlacement.HOMEPAGE_CAROUSEL,
-      titleEn: dto.titleEn,
-      titleVi: dto.titleVi,
-      subtitleEn: dto.subtitleEn,
-      subtitleVi: dto.subtitleVi,
-      imageUrl: dto.imageUrl,
-      mobileImageUrl: dto.mobileImageUrl,
-      linkUrlEn: dto.linkUrlEn,
-      linkUrlVi: dto.linkUrlVi,
-      linkTarget: dto.linkTarget ?? BannerLinkTarget.SELF,
-      status: dto.status ?? BannerStatus.DRAFT,
-      displayOrder: dto.displayOrder ?? 0,
-      publishedAt,
-      expiredAt,
-      createdBy: creator,
-      updatedBy: creator,
+    let createdBannerId = '';
+    await this.bannerRepository.manager.transaction(async (manager) => {
+      const [imageAsset, mobileImageAsset] = await Promise.all([
+        this.findImageAssetByIdOrThrow(
+          dto.imageAssetId,
+          MediaAssetReferenceSlot.BANNER_IMAGE,
+          [MediaAssetUsage.GENERAL, MediaAssetUsage.BANNER],
+          manager,
+        ),
+        this.findImageAssetByIdOrThrow(
+          dto.mobileImageAssetId,
+          MediaAssetReferenceSlot.BANNER_MOBILE_IMAGE,
+          [MediaAssetUsage.GENERAL, MediaAssetUsage.BANNER],
+          manager,
+        ),
+      ]);
+      const repository = manager.getRepository(Banner);
+      const banner = repository.create({
+        placement: dto.placement ?? BannerPlacement.HOMEPAGE_CAROUSEL,
+        titleEn: dto.titleEn,
+        titleVi: dto.titleVi,
+        subtitleEn: dto.subtitleEn,
+        subtitleVi: dto.subtitleVi,
+        imageUrl: dto.imageUrl ?? null,
+        imageAsset,
+        mobileImageUrl: dto.mobileImageUrl,
+        mobileImageAsset,
+        linkUrlEn: dto.linkUrlEn,
+        linkUrlVi: dto.linkUrlVi,
+        linkTarget: dto.linkTarget ?? BannerLinkTarget.SELF,
+        status: dto.status ?? BannerStatus.DRAFT,
+        displayOrder: dto.displayOrder ?? 0,
+        publishedAt,
+        expiredAt,
+        createdBy: creator,
+        updatedBy: creator,
+      });
+
+      createdBannerId = (await repository.save(banner)).id;
     });
 
-    await this.bannerRepository.save(banner);
-
-    return this.findOne(banner.id);
+    return this.findOne(createdBannerId);
   }
 
   async update(
@@ -195,7 +231,11 @@ export class BannersService {
 
     this.validateDateRange(nextPublishedAt, nextExpiredAt);
 
-    if (dto.placement !== undefined) banner.placement = dto.placement;
+    if (dto.placement !== undefined) {
+      banner.placement = dto.placement;
+      banner.legacyPlacement = null;
+      banner.legacyStatus = null;
+    }
     if (dto.titleEn !== undefined) banner.titleEn = dto.titleEn;
     if (dto.titleVi !== undefined) banner.titleVi = dto.titleVi;
     if (dto.subtitleEn !== undefined) banner.subtitleEn = dto.subtitleEn;
@@ -214,7 +254,26 @@ export class BannersService {
 
     banner.updatedBy = updater;
 
-    await this.bannerRepository.save(banner);
+    await this.bannerRepository.manager.transaction(async (manager) => {
+      if (dto.imageAssetId !== undefined) {
+        banner.imageAsset = await this.findImageAssetByIdOrThrow(
+          dto.imageAssetId,
+          MediaAssetReferenceSlot.BANNER_IMAGE,
+          [MediaAssetUsage.GENERAL, MediaAssetUsage.BANNER],
+          manager,
+        );
+      }
+      if (dto.mobileImageAssetId !== undefined) {
+        banner.mobileImageAsset = await this.findImageAssetByIdOrThrow(
+          dto.mobileImageAssetId,
+          MediaAssetReferenceSlot.BANNER_MOBILE_IMAGE,
+          [MediaAssetUsage.GENERAL, MediaAssetUsage.BANNER],
+          manager,
+        );
+      }
+
+      await manager.getRepository(Banner).save(banner);
+    });
 
     return this.findOne(banner.id);
   }
@@ -238,6 +297,8 @@ export class BannersService {
         id,
       },
       relations: {
+        imageAsset: true,
+        mobileImageAsset: true,
         createdBy: true,
         updatedBy: true,
       },
@@ -268,6 +329,22 @@ export class BannersService {
     }
 
     return user;
+  }
+
+  private async findImageAssetByIdOrThrow(
+    id: string | null | undefined,
+    slot: MediaAssetReferenceSlot,
+    compatibleUsages: readonly MediaAssetUsage[],
+    manager: EntityManager,
+  ): Promise<MediaAsset | null> {
+    const result =
+      await this.mediaAssetReferencesService.validateImageSelection(id, {
+        manager,
+        slot,
+        compatibleUsages,
+      });
+
+    return result.asset;
   }
 
   private toOptionalDate(value?: string): Date | undefined {

@@ -1,7 +1,13 @@
 export enum BannerPlacement {
   HOMEPAGE_CAROUSEL = 'homepage_carousel',
+  CLUB = 'club',
+  SERVICE = 'service',
+  MEMBERSHIP = 'membership',
+  NEWS = 'news',
+}
+
+export enum LegacyBannerPlacement {
   HOMEPAGE_SECTION = 'homepage_section',
-  PRICING_PAGE = 'pricing_page',
   CONTACT_PAGE = 'contact_page',
 }
 
