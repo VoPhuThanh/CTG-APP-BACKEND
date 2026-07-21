@@ -47,6 +47,23 @@ import {
   normalizeDeclaredImageMimeType,
 } from './utils/image-metadata.util';
 
+export interface ImportedMediaAssetInput {
+  buffer: Buffer;
+  originalFilename: string;
+  declaredMimeType?: string | null;
+  name: string;
+  storagePrefix?: string;
+  usage?: MediaAssetUsage;
+  dryRun?: boolean;
+}
+
+export interface ImportedMediaAssetResult {
+  asset: MediaAsset | null;
+  action: 'create_asset' | 'reuse_asset';
+  checksum: string;
+  storageKey: string;
+}
+
 @Injectable()
 export class MediaAssetsService {
   private readonly logger = new Logger(MediaAssetsService.name);
@@ -326,6 +343,128 @@ export class MediaAssetsService {
     }
 
     return mapMediaAssetToResponse(savedAsset);
+  }
+
+  async importImage(
+    input: ImportedMediaAssetInput,
+  ): Promise<ImportedMediaAssetResult> {
+    if (input.buffer.length > this.storageConfig.maxFileSizeBytes) {
+      throw AppError.payloadTooLarge(AppErrorCode.MEDIA_ASSET_FILE_TOO_LARGE);
+    }
+
+    let imageMetadata: ReturnType<typeof inspectImage>;
+    try {
+      imageMetadata = inspectImage(input.buffer);
+    } catch {
+      throw AppError.badRequest(AppErrorCode.MEDIA_ASSET_INVALID_IMAGE);
+    }
+
+    if (!this.storageConfig.allowedMimeTypes.has(imageMetadata.mimeType)) {
+      throw AppError.unsupportedMediaType(
+        AppErrorCode.MEDIA_ASSET_UNSUPPORTED_IMAGE_TYPE,
+      );
+    }
+
+    if (
+      input.declaredMimeType &&
+      normalizeDeclaredImageMimeType(input.declaredMimeType) !==
+        imageMetadata.mimeType
+    ) {
+      throw AppError.badRequest(AppErrorCode.MEDIA_ASSET_MIME_MISMATCH);
+    }
+
+    const checksum = createHash('sha256').update(input.buffer).digest('hex');
+    const existingAsset = await this.mediaAssetRepository.findOne({
+      where: {
+        checksum,
+        storageProvider: this.storageProvider.name,
+        type: MediaAssetType.IMAGE,
+        isActive: true,
+      },
+      order: { createdAt: 'ASC', id: 'ASC' },
+    });
+    if (
+      existingAsset?.storageKey &&
+      (await this.storageProvider.exists(existingAsset.storageKey))
+    ) {
+      return {
+        asset: existingAsset,
+        action: 'reuse_asset',
+        checksum,
+        storageKey: existingAsset.storageKey,
+      };
+    }
+
+    const prefix = (input.storagePrefix ?? 'imports/editorial')
+      .replace(/^\/+|\/+$/g, '')
+      .replace(/[^a-zA-Z0-9/_-]/g, '-');
+    const storageKey = `${prefix}/${checksum}.${imageMetadata.extension}`;
+    if (input.dryRun) {
+      return { asset: null, action: 'create_asset', checksum, storageKey };
+    }
+    let wroteObject = false;
+
+    if (!(await this.storageProvider.exists(storageKey))) {
+      try {
+        await this.storageProvider.write({
+          key: storageKey,
+          body: input.buffer,
+          contentType: imageMetadata.mimeType,
+          cacheControl: this.storageConfig.cacheControl,
+        });
+        wroteObject = true;
+      } catch (error) {
+        await this.compensateStorageDelete(storageKey);
+        throw error;
+      }
+    }
+
+    try {
+      const asset = this.mediaAssetRepository.create({
+        name: input.name.slice(0, 150),
+        url: null,
+        storageProvider: this.storageProvider.name,
+        bucket:
+          this.storageProvider.name === 'minio'
+            ? (this.storageConfig.minio?.bucket ?? null)
+            : null,
+        storageKey,
+        originalFilename: this.sanitizeOriginalFilename(
+          input.originalFilename,
+          imageMetadata.extension,
+        ),
+        checksum,
+        type: MediaAssetType.IMAGE,
+        usage: input.usage ?? MediaAssetUsage.GENERAL,
+        mimeType: imageMetadata.mimeType,
+        width: imageMetadata.width,
+        height: imageMetadata.height,
+        fileSizeBytes: input.buffer.length,
+        isActive: true,
+        displayOrder: 0,
+      });
+
+      return {
+        asset: await this.mediaAssetRepository.save(asset),
+        action: 'create_asset',
+        checksum,
+        storageKey,
+      };
+    } catch (error) {
+      const racedAsset = await this.mediaAssetRepository.findOne({
+        where: { storageKey },
+      });
+      if (racedAsset) {
+        return {
+          asset: racedAsset,
+          action: 'reuse_asset',
+          checksum,
+          storageKey,
+        };
+      }
+      if (wroteObject) await this.compensateStorageDelete(storageKey);
+      throw error;
+    }
   }
 
   async update(
