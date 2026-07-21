@@ -57,10 +57,19 @@ export class MembershipLevelCreateDto {
   @IsString()
   descriptionVi?: string;
 
-  @ApiPropertyOptional({ example: 'https://example.com/gold.jpg' })
+  @ApiPropertyOptional({
+    example: 'https://example.com/gold.jpg',
+    deprecated: true,
+    description: 'Legacy fallback only. Prefer imageAssetId.',
+  })
   @IsOptional()
   @IsString()
   imageUrl?: string;
+
+  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @IsOptional()
+  @IsUUID()
+  imageAssetId?: string | null;
 
   @ApiPropertyOptional({ example: false, default: false })
   @IsOptional()

@@ -17,7 +17,7 @@ import {
 import { generateSlug } from '@/cores/utils/slug.util';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, type Repository } from 'typeorm';
+import { In, type EntityManager, type Repository } from 'typeorm';
 import type {
   PublicMembershipBenefitResponseDto,
   PublicMembershipLevelResponseDto,
@@ -25,6 +25,10 @@ import type {
 } from './dtos/public-membership.dto';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
 import { User } from '../users/entities/user.entity';
+import type { MediaAsset } from '../media-assets/entities/media-asset.entity';
+import { MediaAssetReferenceSlot } from '../media-assets/enums/media-asset-reference.enum';
+import { MediaAssetUsage } from '../media-assets/enums/media-asset.enum';
+import { MediaAssetReferencesService } from '../media-assets/media-asset-references.service';
 import type { MembershipBenefitCreateDto } from './dtos/create-membership-benefit.dto';
 import type { MembershipLevelCreateDto } from './dtos/create-membership-level.dto';
 import type { MembershipPlanCreateDto } from './dtos/create-membership-plan.dto';
@@ -67,6 +71,8 @@ export class MembershipsService {
 
     @InjectRepository(MembershipPlan)
     private readonly planRepository: Repository<MembershipPlan>,
+
+    private readonly mediaAssetReferencesService: MediaAssetReferencesService,
   ) {}
 
   async findAllLevels(
@@ -121,6 +127,7 @@ export class MembershipsService {
         ? []
         : await this.levelRepository
             .createQueryBuilder('level')
+            .leftJoinAndSelect('level.imageAsset', 'imageAsset')
             .leftJoinAndSelect('level.plans', 'plan')
             .leftJoinAndSelect('level.benefits', 'benefit')
             .leftJoinAndSelect('level.createdBy', 'createdBy')
@@ -162,26 +169,35 @@ export class MembershipsService {
 
     const benefits = await this.findBenefitsByIdsOrThrow(dto.benefitIds ?? []);
 
-    const level = this.levelRepository.create({
-      nameEn: dto.nameEn,
-      nameVi: dto.nameVi,
-      slug,
-      shortDescriptionEn: dto.shortDescriptionEn,
-      shortDescriptionVi: dto.shortDescriptionVi,
-      descriptionEn: dto.descriptionEn,
-      descriptionVi: dto.descriptionVi,
-      imageUrl: dto.imageUrl,
-      isFeatured: dto.isFeatured ?? false,
-      status: dto.status ?? MembershipStatus.DRAFT,
-      displayOrder: dto.displayOrder ?? 0,
-      benefits,
-      createdBy: creator,
-      updatedBy: creator,
+    let createdLevelId = '';
+    await this.levelRepository.manager.transaction(async (manager) => {
+      const imageAsset = await this.findImageAssetByIdOrThrow(
+        dto.imageAssetId,
+        manager,
+      );
+      const repository = manager.getRepository(MembershipLevel);
+      const level = repository.create({
+        nameEn: dto.nameEn,
+        nameVi: dto.nameVi,
+        slug,
+        shortDescriptionEn: dto.shortDescriptionEn,
+        shortDescriptionVi: dto.shortDescriptionVi,
+        descriptionEn: dto.descriptionEn,
+        descriptionVi: dto.descriptionVi,
+        imageUrl: dto.imageUrl,
+        imageAsset,
+        isFeatured: dto.isFeatured ?? false,
+        status: dto.status ?? MembershipStatus.DRAFT,
+        displayOrder: dto.displayOrder ?? 0,
+        benefits,
+        createdBy: creator,
+        updatedBy: creator,
+      });
+
+      createdLevelId = (await repository.save(level)).id;
     });
 
-    await this.levelRepository.save(level);
-
-    return this.findLevel(level.id);
+    return this.findLevel(createdLevelId);
   }
 
   async updateLevel(
@@ -220,7 +236,16 @@ export class MembershipsService {
 
     level.updatedBy = updater;
 
-    await this.levelRepository.save(level);
+    await this.levelRepository.manager.transaction(async (manager) => {
+      if (dto.imageAssetId !== undefined) {
+        level.imageAsset = await this.findImageAssetByIdOrThrow(
+          dto.imageAssetId,
+          manager,
+        );
+      }
+
+      await manager.getRepository(MembershipLevel).save(level);
+    });
 
     return this.findLevel(level.id);
   }
@@ -527,6 +552,7 @@ export class MembershipsService {
         id: levelId,
       },
       relations: {
+        imageAsset: true,
         plans: {
           level: true,
           createdBy: true,
@@ -637,6 +663,20 @@ export class MembershipsService {
     return user;
   }
 
+  private async findImageAssetByIdOrThrow(
+    id: string | null | undefined,
+    manager: EntityManager,
+  ): Promise<MediaAsset | null> {
+    const result =
+      await this.mediaAssetReferencesService.validateImageSelection(id, {
+        manager,
+        slot: MediaAssetReferenceSlot.MEMBERSHIP_LEVEL_IMAGE,
+        compatibleUsages: [MediaAssetUsage.GENERAL],
+      });
+
+    return result.asset;
+  }
+
   private async ensureLevelSlugIsAvailable(slug: string): Promise<void> {
     const existingLevel = await this.levelRepository.findOne({
       where: {
@@ -693,6 +733,7 @@ export class MembershipsService {
   async findPublicLevels(): Promise<PublicMembershipLevelResponseDto[]> {
     const levels = await this.levelRepository
       .createQueryBuilder('level')
+      .leftJoinAndSelect('level.imageAsset', 'imageAsset')
       .leftJoinAndSelect('level.plans', 'plan', 'plan.status = :planStatus', {
         planStatus: MembershipStatus.PUBLISHED,
       })
@@ -732,6 +773,7 @@ export class MembershipsService {
         id: 'ASC',
       },
       take: 3,
+      relations: { imageAsset: true },
     });
 
     return mapMembershipLevelsToPublicResponses(levels);
@@ -741,6 +783,7 @@ export class MembershipsService {
   ): Promise<PublicMembershipLevelResponseDto> {
     const level = await this.levelRepository
       .createQueryBuilder('level')
+      .leftJoinAndSelect('level.imageAsset', 'imageAsset')
       .leftJoinAndSelect('level.plans', 'plan', 'plan.status = :planStatus', {
         planStatus: MembershipStatus.PUBLISHED,
       })

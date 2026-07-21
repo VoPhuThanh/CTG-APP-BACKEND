@@ -1,4 +1,5 @@
 import { BaseEntityCore } from '@/cores/entities/core-entity';
+import { MediaAsset } from '@/modules/media-assets/entities/media-asset.entity';
 import { User } from '@/modules/users/entities/user.entity';
 import {
   Column,
@@ -44,6 +45,21 @@ export class MembershipLevel extends BaseEntityCore {
 
   @Column({ name: 'image_url', type: 'text', nullable: true })
   imageUrl?: string;
+
+  @Index('IDX_membership_levels_image_asset_id')
+  @Column({ name: 'image_asset_id', type: 'uuid', nullable: true })
+  imageAssetId!: string | null;
+
+  @ManyToOne(() => MediaAsset, {
+    nullable: true,
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  })
+  @JoinColumn({
+    name: 'image_asset_id',
+    foreignKeyConstraintName: 'FK_membership_levels_image_asset',
+  })
+  imageAsset!: MediaAsset | null;
 
   @Column({ name: 'is_featured', type: 'boolean', default: false })
   isFeatured!: boolean;

@@ -1,4 +1,5 @@
 import { MetadataResponseDto } from '@/cores/dtos/metadata.dto';
+import { MediaAssetSummaryResponseDto } from '@/modules/media-assets/dtos/media-asset.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MembershipStatus } from '../enums/membership.enum';
 import { MembershipBenefitResponseDto } from './membership-benefit.dto';
@@ -29,8 +30,14 @@ export class MembershipLevelResponseDto {
   @ApiPropertyOptional({ nullable: true })
   descriptionVi!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
   imageUrl!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, format: 'uuid' })
+  imageAssetId!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, type: MediaAssetSummaryResponseDto })
+  imageAsset!: MediaAssetSummaryResponseDto | null;
 
   @ApiProperty()
   isFeatured!: boolean;

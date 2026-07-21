@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PublicMediaAssetSummaryResponseDto } from '@/modules/media-assets/dtos/media-asset.dto';
 
 export class PublicMembershipBenefitResponseDto {
   @ApiProperty()
@@ -74,8 +75,14 @@ export class PublicMembershipLevelResponseDto {
   @ApiPropertyOptional({ nullable: true })
   descriptionVi!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
   imageUrl!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: PublicMediaAssetSummaryResponseDto,
+  })
+  imageAsset!: PublicMediaAssetSummaryResponseDto | null;
 
   @ApiProperty()
   isFeatured!: boolean;

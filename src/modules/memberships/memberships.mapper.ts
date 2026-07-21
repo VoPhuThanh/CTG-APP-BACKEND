@@ -1,4 +1,8 @@
 import { mapMetadataToResponse } from '@/cores/mappers/metadata.mapper';
+import {
+  mapMediaAssetToPublicSummary,
+  mapMediaAssetToSummary,
+} from '../media-assets/media-assets.mapper';
 import { MembershipBenefitResponseDto } from './dtos/membership-benefit.dto';
 import { MembershipLevelResponseDto } from './dtos/membership-level.dto';
 import { MembershipPlanResponseDto } from './dtos/membership-plan.dto';
@@ -78,6 +82,8 @@ export function mapMembershipLevelToResponse(
   dto.descriptionEn = level.descriptionEn ?? null;
   dto.descriptionVi = level.descriptionVi ?? null;
   dto.imageUrl = level.imageUrl ?? null;
+  dto.imageAssetId = level.imageAssetId ?? null;
+  dto.imageAsset = mapMediaAssetToSummary(level.imageAsset);
   dto.isFeatured = level.isFeatured;
   dto.status = level.status;
   dto.displayOrder = level.displayOrder;
@@ -156,6 +162,7 @@ export function mapMembershipLevelToPublicResponse(
   dto.descriptionEn = level.descriptionEn ?? null;
   dto.descriptionVi = level.descriptionVi ?? null;
   dto.imageUrl = level.imageUrl ?? null;
+  dto.imageAsset = mapMediaAssetToPublicSummary(level.imageAsset);
   dto.isFeatured = level.isFeatured;
   dto.displayOrder = level.displayOrder;
 
