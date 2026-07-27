@@ -31,6 +31,7 @@ describe('BannersService public placements', () => {
     BannerPlacement.SERVICE,
     BannerPlacement.MEMBERSHIP,
     BannerPlacement.NEWS,
+    BannerPlacement.CONTACT,
   ])(
     'queries active public %s banners deterministically',
     async (placement) => {

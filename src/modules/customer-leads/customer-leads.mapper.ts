@@ -54,6 +54,8 @@ export function mapCustomerLeadToResponse(
   dto.id = lead.id;
   dto.fullName = lead.fullName ?? null;
   dto.phoneNumber = lead.phoneNumber;
+  dto.email = lead.email ?? null;
+  dto.message = lead.message ?? null;
   dto.source = lead.source;
   dto.preferredClub = lead.preferredClub
     ? mapClubToSummary(lead.preferredClub)

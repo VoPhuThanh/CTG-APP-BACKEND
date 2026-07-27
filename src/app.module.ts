@@ -19,6 +19,7 @@ import { SiteSettingsModule } from './modules/site-settings/site-settings.module
 import { MediaAssetsModule } from './modules/media-assets/media-assets.module';
 import { StorageModule } from './cores/storage/storage.module';
 import { validateEnvironment } from './configs/media-storage.config';
+import { ContactsModule } from './modules/contacts/contacts.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { validateEnvironment } from './configs/media-storage.config';
     CustomerLeadsModule,
     SiteSettingsModule,
     MediaAssetsModule,
+    ContactsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

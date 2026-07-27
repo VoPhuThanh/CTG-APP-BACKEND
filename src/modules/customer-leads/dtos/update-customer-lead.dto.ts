@@ -1,5 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
+  IsEmail,
   IsBoolean,
   IsEnum,
   IsInt,
@@ -17,6 +19,9 @@ import {
   CustomerLeadStatus,
 } from '../enums/customer-lead.enum';
 
+const trimString = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim() : value;
+
 export class CustomerLeadUpdateDto {
   @ApiPropertyOptional({ example: 'Nguyen Van A' })
   @IsOptional()
@@ -29,6 +34,25 @@ export class CustomerLeadUpdateDto {
   @IsString()
   @MaxLength(30)
   phoneNumber?: string;
+
+  @ApiPropertyOptional({
+    example: 'customer@example.com',
+    nullable: true,
+    maxLength: 254,
+  })
+  @Transform(trimString)
+  @IsOptional()
+  @IsString()
+  @IsEmail()
+  @MaxLength(254)
+  email?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, maxLength: 5000 })
+  @Transform(trimString)
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  message?: string | null;
 
   @ApiPropertyOptional({ enum: CustomerLeadSource })
   @IsOptional()

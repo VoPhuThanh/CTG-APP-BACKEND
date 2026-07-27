@@ -15,13 +15,15 @@ async function seed() {
 
   let adminPermissions = await permissionRepository.findOne({
     where: {
-      name: 'ADMIN',
+      name: 'system:admin',
     },
   });
 
   if (!adminPermissions) {
     adminPermissions = permissionRepository.create({
       name: 'system:admin',
+      module: 'system',
+      action: 'admin',
       description: 'Full admin permissions',
     });
 
@@ -44,6 +46,13 @@ async function seed() {
     });
 
     adminRole.permissions = [adminPermissions];
+    await roleRepository.save(adminRole);
+  } else if (
+    !adminRole.permissions.some(
+      (permission) => permission.name === adminPermissions.name,
+    )
+  ) {
+    adminRole.permissions = [...adminRole.permissions, adminPermissions];
     await roleRepository.save(adminRole);
   }
 
@@ -72,4 +81,4 @@ async function seed() {
   await AppDataSource.destroy();
 }
 
-seed();
+void seed();

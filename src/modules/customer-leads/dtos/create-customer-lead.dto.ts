@@ -1,9 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   Equals,
+  IsEmail,
   IsBoolean,
   IsEnum,
   IsInt,
+  IsNotEmpty,
   IsNumberString,
   IsOptional,
   IsString,
@@ -11,23 +14,67 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import {
   CustomerLeadGender,
   CustomerLeadSource,
 } from '../enums/customer-lead.enum';
 
+const trimString = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim() : value;
+
 export class CustomerLeadCreateDto {
   @ApiPropertyOptional({ example: 'Nguyen Van A' })
-  @IsOptional()
+  @Transform(trimString)
+  @ValidateIf(
+    (dto: CustomerLeadCreateDto) =>
+      dto.source === CustomerLeadSource.CONTACT_FORM ||
+      dto.fullName !== undefined,
+  )
   @IsString()
+  @IsNotEmpty()
   @MaxLength(150)
   fullName?: string;
 
   @ApiProperty({ example: '0900000000' })
+  @Transform(trimString)
   @IsString()
+  @IsNotEmpty()
   @MaxLength(30)
   phoneNumber!: string;
+
+  @ApiPropertyOptional({
+    example: 'customer@example.com',
+    maxLength: 254,
+    description: 'Required when source is contact_form.',
+  })
+  @Transform(trimString)
+  @ValidateIf(
+    (dto: CustomerLeadCreateDto) =>
+      dto.source === CustomerLeadSource.CONTACT_FORM || dto.email !== undefined,
+  )
+  @IsString()
+  @IsNotEmpty()
+  @IsEmail()
+  @MaxLength(254)
+  email?: string;
+
+  @ApiPropertyOptional({
+    example: 'I would like more information about membership options.',
+    maxLength: 5000,
+    description: 'Required when source is contact_form.',
+  })
+  @Transform(trimString)
+  @ValidateIf(
+    (dto: CustomerLeadCreateDto) =>
+      dto.source === CustomerLeadSource.CONTACT_FORM ||
+      dto.message !== undefined,
+  )
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(5000)
+  message?: string;
 
   @ApiProperty({
     enum: CustomerLeadSource,

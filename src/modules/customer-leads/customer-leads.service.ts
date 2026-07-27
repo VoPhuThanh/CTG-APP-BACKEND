@@ -102,6 +102,7 @@ export class CustomerLeadsService {
         `(
           lead.fullName ILIKE :search
           OR lead.phoneNumber ILIKE :search
+          OR lead.email ILIKE :search
           OR lead.preferredCallTime ILIKE :search
           OR lead.internalNote ILIKE :search
           OR preferredClub.nameEn ILIKE :search
@@ -160,6 +161,8 @@ export class CustomerLeadsService {
 
     if (dto.fullName !== undefined) lead.fullName = dto.fullName;
     if (dto.phoneNumber !== undefined) lead.phoneNumber = dto.phoneNumber;
+    if (dto.email !== undefined) lead.email = dto.email;
+    if (dto.message !== undefined) lead.message = dto.message;
     if (dto.source !== undefined) lead.source = dto.source;
     if (dto.preferredCallTime !== undefined) {
       lead.preferredCallTime = dto.preferredCallTime;
@@ -251,6 +254,8 @@ export class CustomerLeadsService {
     const lead = this.customerLeadRepository.create({
       fullName: dto.fullName,
       phoneNumber: dto.phoneNumber,
+      email: dto.email ?? null,
+      message: dto.message ?? null,
       source: dto.source,
       preferredClub,
       preferredCallTime: dto.preferredCallTime,

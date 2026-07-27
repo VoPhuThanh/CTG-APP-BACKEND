@@ -26,8 +26,11 @@ const MODULES = [
   'permissions',
 ] as const;
 
-function buildModulePermissions(module: string): PermissionSeed[] {
-  const modulePermissions = CRUD_ACTIONS.map((action) => ({
+function buildModulePermissions(
+  module: string,
+  actions: readonly string[] = CRUD_ACTIONS,
+): PermissionSeed[] {
+  const modulePermissions = actions.map((action) => ({
     name: `${module}:${action}`,
     module,
     action,
@@ -64,6 +67,7 @@ function buildPermissionSeeds(): PermissionSeed[] {
     },
 
     ...MODULES.flatMap((module) => buildModulePermissions(module)),
+    ...buildModulePermissions('contacts', ['read', 'update', 'delete']),
   ];
 }
 

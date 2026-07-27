@@ -48,7 +48,7 @@ export class CustomerLeadsController {
     required: false,
     type: String,
     description:
-      'Search by full name, phone number, preferred call time, internal note, club, service, or membership level',
+      'Search by full name, phone number, email, preferred call time, internal note, club, service, or membership level',
   })
   @ApiQuery({ name: 'source', required: false, enum: CustomerLeadSource })
   @ApiQuery({ name: 'status', required: false, enum: CustomerLeadStatus })

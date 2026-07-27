@@ -50,6 +50,8 @@ export const AppErrorMessage: Record<AppErrorCode, string> = {
   [AppErrorCode.CUSTOMER_LEAD_CONSENT_REQUIRED]:
     'Customer consent is required before submitting the form.',
 
+  [AppErrorCode.CONTACT_NOT_FOUND]: 'Contact content not found.',
+
   [AppErrorCode.MEDIA_ASSET_NOT_FOUND]: 'Media asset not found.',
   [AppErrorCode.MEDIA_ASSET_NOT_IMAGE]:
     'The selected media asset must be an image.',

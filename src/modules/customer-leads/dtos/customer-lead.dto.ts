@@ -59,6 +59,12 @@ export class CustomerLeadResponseDto {
   @ApiProperty()
   phoneNumber!: string;
 
+  @ApiPropertyOptional({ nullable: true, format: 'email' })
+  email!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  message!: string | null;
+
   @ApiProperty({ enum: CustomerLeadSource })
   source!: CustomerLeadSource;
 

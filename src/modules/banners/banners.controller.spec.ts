@@ -20,6 +20,18 @@ describe('BannersController', () => {
     );
   });
 
+  it('delegates the public contact placement query', async () => {
+    bannersService.findPublicByPlacement.mockResolvedValue([]);
+
+    await controller.findPublicByPlacement({
+      placement: BannerPlacement.CONTACT,
+    });
+
+    expect(bannersService.findPublicByPlacement).toHaveBeenCalledWith(
+      BannerPlacement.CONTACT,
+    );
+  });
+
   it('preserves the homepage carousel route', async () => {
     bannersService.findPublicHeroCarousel.mockResolvedValue([]);
 
