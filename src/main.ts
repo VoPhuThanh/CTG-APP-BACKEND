@@ -17,9 +17,11 @@ async function bootstrap() {
       redirect: false,
     });
   }
-  const allowedOrigins = [process.env.FRONTEND_URL, process.env.CMS_URL].filter(
-    (origin): origin is string => Boolean(origin),
-  );
+  const allowedOrigins = [process.env.FRONTEND_URLS, process.env.CMS_URLS]
+    .filter(Boolean)
+    .flatMap((value) => value!.split(','))
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
   app.enableCors({
     origin: allowedOrigins,
