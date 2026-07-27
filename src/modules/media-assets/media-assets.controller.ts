@@ -23,6 +23,7 @@ import {
 
 import { Authorized } from '@/cores/decorators/authorized.decorators';
 import { CurrentUser } from '@/cores/decorators/current-user.decorators';
+import { ReorderCollectionDto } from '@/cores/ordering/dtos/reorder-collection.dto';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
 import { MediaAssetCreateDto } from './dtos/create-media-asset.dto';
@@ -85,6 +86,25 @@ export class MediaAssetsController {
     return this.mediaAssetsService.findAll(query);
   }
 
+  @ApiOperation({
+    summary: 'Find the complete media-asset ordering collection',
+  })
+  @Authorized('media-assets:read')
+  @Get('reorder')
+  findReorderList() {
+    return this.mediaAssetsService.findReorderList();
+  }
+
+  @ApiOperation({ summary: 'Replace the complete media-asset order' })
+  @Authorized('media-assets:update')
+  @Patch('reorder')
+  reorder(
+    @Body() dto: ReorderCollectionDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.mediaAssetsService.reorder(dto.orderedIds, currentUser);
+  }
+
   @ApiOperation({ summary: 'Report relational usage for a media asset' })
   @ApiOkResponse({ type: MediaAssetUsageReportResponseDto })
   @Authorized('media-assets:read')
@@ -119,7 +139,6 @@ export class MediaAssetsController {
         descriptionVi: { type: 'string' },
         usage: { type: 'string', enum: Object.values(MediaAssetUsage) },
         isActive: { type: 'boolean', default: true },
-        displayOrder: { type: 'integer', minimum: 0, default: 0 },
       },
     },
   })

@@ -105,10 +105,4 @@ export class MediaAssetUpdateDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
-
-  @ApiPropertyOptional({ example: 0 })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  displayOrder?: number;
 }

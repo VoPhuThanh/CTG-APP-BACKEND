@@ -15,6 +15,10 @@ import { PostCategory } from './post-category.entity';
 import { PostInlineMediaAsset } from './post-inline-media-asset.entity';
 
 @Entity('posts')
+@Index('UQ_posts_active_category_display_order', ['category', 'displayOrder'], {
+  unique: true,
+  where: '"deletedAt" IS NULL',
+})
 export class Post extends BaseEntityCore {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

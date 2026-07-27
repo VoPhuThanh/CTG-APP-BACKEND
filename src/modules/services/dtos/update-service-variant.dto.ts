@@ -145,12 +145,6 @@ export class ServiceVariantUpdateDto {
   @IsEnum(ServiceStatus)
   status?: ServiceStatus;
 
-  @ApiPropertyOptional({ example: 0 })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  displayOrder?: number;
-
   @ApiPropertyOptional({ example: false })
   @IsOptional()
   @IsBoolean()

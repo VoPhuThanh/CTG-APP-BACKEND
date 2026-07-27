@@ -18,6 +18,7 @@ import {
 
 import { Authorized } from '@/cores/decorators/authorized.decorators';
 import { CurrentUser } from '@/cores/decorators/current-user.decorators';
+import { ReorderCollectionDto } from '@/cores/ordering/dtos/reorder-collection.dto';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
 import { PostCategoryCreateDto } from './dtos/create-post-category.dto';
@@ -27,6 +28,7 @@ import { PostQueryDto } from './dtos/post-query.dto';
 import { PostCategoryUpdateDto } from './dtos/update-post-category.dto';
 import { PostUpdateDto } from './dtos/update-post.dto';
 import { PostStatus } from './enums/post.enum';
+import { PostReorderDto, PostReorderQueryDto } from './dtos/reorder-posts.dto';
 import { PostsService } from './posts.service';
 
 @ApiTags('Posts')
@@ -80,6 +82,25 @@ export class PostsController {
   @Get('categories')
   findAllCategories(@Query() query: PostCategoryQueryDto) {
     return this.postsService.findAllCategories(query);
+  }
+
+  @ApiOperation({
+    summary: 'Find the complete post-category ordering collection',
+  })
+  @Authorized('posts:read')
+  @Get('categories/reorder')
+  findCategoryReorderList() {
+    return this.postsService.findCategoryReorderList();
+  }
+
+  @ApiOperation({ summary: 'Replace the complete post-category order' })
+  @Authorized('posts:update')
+  @Patch('categories/reorder')
+  reorderCategories(
+    @Body() dto: ReorderCollectionDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.postsService.reorderCategories(dto.orderedIds, currentUser);
   }
 
   @ApiOperation({ summary: 'Find post category by id' })
@@ -148,6 +169,31 @@ export class PostsController {
   @Get()
   findAllPosts(@Query() query: PostQueryDto) {
     return this.postsService.findAllPosts(query);
+  }
+
+  @ApiOperation({
+    summary: 'Find the complete post ordering collection for a category',
+  })
+  @Authorized('posts:read')
+  @Get('reorder')
+  findPostReorderList(@Query() query: PostReorderQueryDto) {
+    return this.postsService.findPostReorderList(query.categoryId);
+  }
+
+  @ApiOperation({
+    summary: 'Replace the complete post order for a category',
+  })
+  @Authorized('posts:update')
+  @Patch('reorder')
+  reorderPosts(
+    @Body() dto: PostReorderDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.postsService.reorderPosts(
+      dto.categoryId,
+      dto.orderedIds,
+      currentUser,
+    );
   }
 
   @ApiOperation({ summary: 'Find post detail with sanitized bilingual HTML' })

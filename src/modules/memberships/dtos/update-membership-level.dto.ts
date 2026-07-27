@@ -4,13 +4,11 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
-  IsInt,
   IsOptional,
   IsString,
   IsUUID,
   Matches,
   MaxLength,
-  Min,
 } from 'class-validator';
 import { MembershipStatus } from '../enums/membership.enum';
 
@@ -79,12 +77,6 @@ export class MembershipLevelUpdateDto {
   @IsOptional()
   @IsEnum(MembershipStatus)
   status?: MembershipStatus;
-
-  @ApiPropertyOptional({ example: 0 })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  displayOrder?: number;
 
   @ApiPropertyOptional({
     type: [String],

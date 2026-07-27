@@ -17,6 +17,11 @@ export const AppErrorMessage: Record<AppErrorCode, string> = {
   [AppErrorCode.PERMISSION_NAME_ALREADY_EXISTS]:
     'Permission name already exists.',
 
+  [AppErrorCode.ORDERING_IDS_INVALID]:
+    'orderedIds must be a non-empty array of unique UUIDs.',
+  [AppErrorCode.ORDERING_COLLECTION_MISMATCH]:
+    'orderedIds must exactly match every active record in the selected ordering scope.',
+
   [AppErrorCode.FACILITY_NOT_FOUND]: 'Facility not found.',
   [AppErrorCode.FACILITY_SLUG_ALREADY_EXISTS]: 'Facility slug already exists.',
   [AppErrorCode.SERVICE_NOT_FOUND]: 'Service not found.',

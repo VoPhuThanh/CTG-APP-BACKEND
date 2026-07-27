@@ -271,3 +271,23 @@ relation graph and exposes `resolvedContentHtmlEn` /
 `resolvedContentHtmlVi`; deprecated `contentHtmlEn` / `contentHtmlVi` remain
 resolved compatibility aliases. See `docs/POST_CONTENT.md`,
 `docs/MEDIA_LIFECYCLE.md`, and the MinIO/inline-media CMS handoff.
+
+## Deterministic display ordering
+
+All top-level `displayOrder` collections now use zero-based, contiguous
+positions owned by dedicated batch reorder endpoints. Global scopes are clubs,
+facilities, services, membership levels, membership benefits, post categories,
+and media assets. Scoped collections are banners by placement, variants by
+service, plans by membership level, posts by category, and site settings by
+group. Club gallery media remains ordered within its club through the existing
+nested relation replacement contract.
+
+Create appends, delete compacts, and a placement/category/group move compacts
+the old scope and appends to the new scope transactionally. Ordinary create and
+update DTOs no longer expose `displayOrder`. See `docs/ORDERING.md` for the
+complete route and validation contract.
+
+Migration `1785301200000-normalize-display-ordering.ts` normalized existing
+active rows and added scope-correct partial unique indexes. Migration show
+reported it pending before execution and applied after `migration:run` on
+2026-07-27.

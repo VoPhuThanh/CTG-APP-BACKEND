@@ -3,13 +3,11 @@ import {
   IsBoolean,
   IsDateString,
   IsEnum,
-  IsInt,
   IsOptional,
   IsString,
   IsUUID,
   Matches,
   MaxLength,
-  Min,
 } from 'class-validator';
 import { PostStatus } from '../enums/post.enum';
 import { POST_CONTENT_MAX_BYTES } from '../post-content.constants';
@@ -133,10 +131,4 @@ export class PostCreateDto {
   @IsOptional()
   @IsBoolean()
   isFeatured?: boolean;
-
-  @ApiPropertyOptional({ example: 0, default: 0 })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  displayOrder?: number;
 }

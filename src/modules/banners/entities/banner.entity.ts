@@ -16,6 +16,14 @@ import {
 } from '../enums/banner.enum';
 
 @Entity('banners')
+@Index(
+  'UQ_banners_active_placement_display_order',
+  ['placement', 'displayOrder'],
+  {
+    unique: true,
+    where: '"deletedAt" IS NULL AND "placement" IS NOT NULL',
+  },
+)
 export class Banner extends BaseEntityCore {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

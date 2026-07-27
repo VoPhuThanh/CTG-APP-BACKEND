@@ -14,6 +14,14 @@ import { MembershipLevel } from './membership-level.entity';
 
 @Entity('membership_plans')
 @Unique(['level', 'durationMonths'])
+@Index(
+  'UQ_membership_plans_active_level_display_order',
+  ['level', 'displayOrder'],
+  {
+    unique: true,
+    where: '"deletedAt" IS NULL',
+  },
+)
 export class MembershipPlan extends BaseEntityCore {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

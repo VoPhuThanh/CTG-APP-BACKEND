@@ -23,6 +23,7 @@ describe('ServicesService', () => {
   const serviceRepository = {
     createQueryBuilder: jest.fn(),
     findOne: jest.fn(),
+    find: jest.fn(),
     manager: {
       transaction: jest.fn(),
     },
@@ -73,9 +74,13 @@ describe('ServicesService', () => {
   };
   const manager = {
     getRepository: jest.fn(),
+    query: jest.fn(),
+    update: jest.fn(),
+    softDelete: jest.fn(),
   };
   const serviceVariantRepository = {
     createQueryBuilder: jest.fn(() => variantQueryBuilder),
+    find: jest.fn(),
     findOne: jest.fn(),
     manager: {
       transaction: jest.fn(),
@@ -143,6 +148,11 @@ describe('ServicesService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    manager.query.mockResolvedValue([]);
+    manager.update.mockResolvedValue({ affected: 1 });
+    manager.softDelete.mockResolvedValue({ affected: 1 });
+    serviceRepository.find.mockResolvedValue([]);
+    serviceVariantRepository.find.mockResolvedValue([]);
     serviceRepository.createQueryBuilder.mockReturnValue(serviceQueryBuilder);
     userRepository.findOne.mockResolvedValue(user);
     serviceVariantRepository.findOne.mockResolvedValue(null);
@@ -321,6 +331,10 @@ describe('ServicesService', () => {
       asset: imageAsset,
       warnings: [],
     });
+    manager.query.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      { id: 'existing-1', displayOrder: 0 },
+      { id: 'existing-2', displayOrder: 1 },
+    ]);
 
     const result = await service.create(
       {
@@ -340,12 +354,58 @@ describe('ServicesService', () => {
       }),
     );
     expect(transactionServiceRepository.create).toHaveBeenCalledWith(
-      expect.objectContaining({ imageAsset }),
+      expect.objectContaining({ imageAsset, displayOrder: 2 }),
     );
     expect(result.imageAssetId).toBe(imageAsset.id);
     expect(result.imageAsset).toEqual(
       expect.objectContaining({ id: imageAsset.id, url: imageAsset.url }),
     );
+  });
+
+  it('reorders a complete variant scope independently', async () => {
+    const firstId = '11111111-1111-4111-8111-111111111111';
+    const secondId = '22222222-2222-4222-8222-222222222222';
+    serviceRepository.findOne.mockResolvedValue(parentService);
+    manager.query
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { id: firstId, displayOrder: 0 },
+        { id: secondId, displayOrder: 1 },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+
+    await service.reorderVariants(
+      parentService.id,
+      [secondId, firstId],
+      currentUser,
+    );
+
+    const calls = manager.query.mock.calls as unknown as Array<
+      [string, unknown[]?]
+    >;
+    expect(calls[1][0]).toContain('"service_id" = $1');
+    expect(calls[1][1]).toEqual([parentService.id]);
+    expect(calls[3][1]).toEqual([[secondId, firstId], currentUser.id]);
+  });
+
+  it('compacts a variant scope after soft deletion', async () => {
+    const variant = buildVariant({ displayOrder: 1 });
+    const remainingId = '22222222-2222-4222-8222-222222222222';
+    serviceVariantRepository.findOne.mockResolvedValue(variant);
+    manager.query
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: remainingId, displayOrder: 2 }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+
+    await service.deleteVariant(parentService.id, variant.id, currentUser);
+
+    expect(manager.softDelete).toHaveBeenCalledWith(ServiceVariant, variant.id);
+    const calls = manager.query.mock.calls as unknown as Array<
+      [string, unknown[]?]
+    >;
+    expect(calls[3][1]).toEqual([[remainingId], currentUser.id]);
   });
 
   it('returns only the requested page of published variants', async () => {

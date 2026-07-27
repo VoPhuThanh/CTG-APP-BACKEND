@@ -2,13 +2,11 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
   IsEnum,
-  IsInt,
   IsOptional,
   IsString,
   IsUUID,
   Matches,
   MaxLength,
-  Min,
 } from 'class-validator';
 import { ServiceStatus } from '../enums/service.enum';
 
@@ -77,12 +75,6 @@ export class ServiceUpdateDto {
   @IsOptional()
   @IsEnum(ServiceStatus)
   status?: ServiceStatus;
-
-  @ApiPropertyOptional({ example: 0 })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  displayOrder?: number;
 
   @ApiPropertyOptional({ example: false })
   @IsOptional()

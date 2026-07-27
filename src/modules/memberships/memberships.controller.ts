@@ -18,6 +18,7 @@ import {
 import { Authorized } from '@/cores/decorators/authorized.decorators';
 import { CurrentUser } from '@/cores/decorators/current-user.decorators';
 import { PaginationQueryDto } from '@/cores/pagination/pagination-query.dto';
+import { ReorderCollectionDto } from '@/cores/ordering/dtos/reorder-collection.dto';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
 import { MembershipBenefitCreateDto } from './dtos/create-membership-benefit.dto';
@@ -102,6 +103,25 @@ export class MembershipsController {
     return this.membershipsService.findAllLevels(query);
   }
 
+  @ApiOperation({
+    summary: 'Find the complete membership-level ordering collection',
+  })
+  @Authorized('memberships:read')
+  @Get('levels/reorder')
+  findLevelReorderList() {
+    return this.membershipsService.findLevelReorderList();
+  }
+
+  @ApiOperation({ summary: 'Replace the complete membership-level order' })
+  @Authorized('memberships:update')
+  @Patch('levels/reorder')
+  reorderLevels(
+    @Body() dto: ReorderCollectionDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.membershipsService.reorderLevels(dto.orderedIds, currentUser);
+  }
+
   @ApiOperation({ summary: 'Find membership level by id' })
   @Authorized('memberships:read')
   @Get('levels/:levelId')
@@ -161,6 +181,25 @@ export class MembershipsController {
   @Get('benefits')
   findAllBenefits(@Query() query: PaginationQueryDto) {
     return this.membershipsService.findAllBenefits(query);
+  }
+
+  @ApiOperation({
+    summary: 'Find the complete membership-benefit ordering collection',
+  })
+  @Authorized('memberships:read')
+  @Get('benefits/reorder')
+  findBenefitReorderList() {
+    return this.membershipsService.findBenefitReorderList();
+  }
+
+  @ApiOperation({ summary: 'Replace the complete membership-benefit order' })
+  @Authorized('memberships:update')
+  @Patch('benefits/reorder')
+  reorderBenefits(
+    @Body() dto: ReorderCollectionDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.membershipsService.reorderBenefits(dto.orderedIds, currentUser);
   }
 
   @ApiOperation({ summary: 'Find membership benefit by id' })
@@ -225,6 +264,33 @@ export class MembershipsController {
     @Query() query: PaginationQueryDto,
   ) {
     return this.membershipsService.findAllPlans(levelId, query);
+  }
+
+  @ApiOperation({
+    summary:
+      'Find the complete membership-plan ordering collection for a level',
+  })
+  @Authorized('memberships:read')
+  @Get('levels/:levelId/plans/reorder')
+  findPlanReorderList(@Param('levelId') levelId: string) {
+    return this.membershipsService.findPlanReorderList(levelId);
+  }
+
+  @ApiOperation({
+    summary: 'Replace the complete membership-plan order for a level',
+  })
+  @Authorized('memberships:update')
+  @Patch('levels/:levelId/plans/reorder')
+  reorderPlans(
+    @Param('levelId') levelId: string,
+    @Body() dto: ReorderCollectionDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.membershipsService.reorderPlans(
+      levelId,
+      dto.orderedIds,
+      currentUser,
+    );
   }
 
   @ApiOperation({ summary: 'Find membership plan by id' })

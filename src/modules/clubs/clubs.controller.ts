@@ -18,6 +18,7 @@ import {
 import { Authorized } from '@/cores/decorators/authorized.decorators';
 import { CurrentUser } from '@/cores/decorators/current-user.decorators';
 import { PaginationQueryDto } from '@/cores/pagination/pagination-query.dto';
+import { ReorderCollectionDto } from '@/cores/ordering/dtos/reorder-collection.dto';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
 import { ClubsService } from './clubs.service';
@@ -69,6 +70,23 @@ export class ClubsController {
   @Get()
   findAll(@Query() query: PaginationQueryDto) {
     return this.clubsService.findAll(query);
+  }
+
+  @ApiOperation({ summary: 'Find the complete club ordering collection' })
+  @Authorized('clubs:read')
+  @Get('reorder')
+  findReorderList() {
+    return this.clubsService.findReorderList();
+  }
+
+  @ApiOperation({ summary: 'Replace the complete club order' })
+  @Authorized('clubs:update')
+  @Patch('reorder')
+  reorder(
+    @Body() dto: ReorderCollectionDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.clubsService.reorder(dto.orderedIds, currentUser);
   }
 
   @ApiOperation({ summary: 'Find club by id' })

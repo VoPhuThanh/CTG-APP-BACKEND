@@ -18,6 +18,7 @@ import {
 import { Authorized } from '@/cores/decorators/authorized.decorators';
 import { CurrentUser } from '@/cores/decorators/current-user.decorators';
 import { PaginationQueryDto } from '@/cores/pagination/pagination-query.dto';
+import { ReorderCollectionDto } from '@/cores/ordering/dtos/reorder-collection.dto';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
 import { FacilityCreateDto } from './dtos/create-facility.dto';
@@ -57,6 +58,23 @@ export class FacilitiesController {
   @Get()
   findAll(@Query() query: PaginationQueryDto) {
     return this.facilitiesService.findAll(query);
+  }
+
+  @ApiOperation({ summary: 'Find the complete facility ordering collection' })
+  @Authorized('facilities:read')
+  @Get('reorder')
+  findReorderList() {
+    return this.facilitiesService.findReorderList();
+  }
+
+  @ApiOperation({ summary: 'Replace the complete facility order' })
+  @Authorized('facilities:update')
+  @Patch('reorder')
+  reorder(
+    @Body() dto: ReorderCollectionDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.facilitiesService.reorder(dto.orderedIds, currentUser);
   }
 
   @ApiOperation({ summary: 'Find facility by id' })

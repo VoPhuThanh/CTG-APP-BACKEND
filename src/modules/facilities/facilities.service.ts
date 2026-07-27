@@ -8,6 +8,12 @@ import {
   getPaginationSkip,
   getPaginationTake,
 } from '@/cores/pagination/pagination-utils';
+import {
+  compactCollection,
+  getNextDisplayOrder,
+  OrderingCollections,
+  reorderCollection,
+} from '@/cores/ordering/ordering.helper';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { EntityManager, Repository } from 'typeorm';
@@ -101,6 +107,41 @@ export class FacilitiesService {
     return mapFacilityToResponse(facility);
   }
 
+  async findReorderList(): Promise<FacilityResponseDto[]> {
+    const facilities = await this.facilityRepository.find({
+      relations: {
+        coverImageAsset: true,
+        createdBy: true,
+        updatedBy: true,
+      },
+      order: {
+        displayOrder: 'ASC',
+        createdAt: 'ASC',
+        id: 'ASC',
+      },
+    });
+
+    return mapFacilitiesToResponses(facilities);
+  }
+
+  async reorder(
+    orderedIds: string[],
+    currentUser: AuthenticatedUser,
+  ): Promise<FacilityResponseDto[]> {
+    const updater = await this.findCurrentUserOrThrow(currentUser);
+
+    await this.facilityRepository.manager.transaction(async (manager) => {
+      await reorderCollection(
+        manager,
+        OrderingCollections.facilities,
+        orderedIds,
+        updater.id,
+      );
+    });
+
+    return this.findReorderList();
+  }
+
   async create(
     dto: FacilityCreateDto,
     currentUser: AuthenticatedUser,
@@ -118,6 +159,10 @@ export class FacilitiesService {
         manager,
       );
       const repository = manager.getRepository(Facility);
+      const displayOrder = await getNextDisplayOrder(
+        manager,
+        OrderingCollections.facilities,
+      );
       const facility = repository.create({
         nameEn: dto.nameEn,
         nameVi: dto.nameVi,
@@ -127,7 +172,7 @@ export class FacilitiesService {
         coverImageUrl: dto.coverImageUrl,
         coverImageAsset,
         isActive: dto.isActive ?? true,
-        displayOrder: dto.displayOrder ?? 0,
+        displayOrder,
         createdBy: creator,
         updatedBy: creator,
       });
@@ -175,10 +220,6 @@ export class FacilitiesService {
       facility.isActive = dto.isActive;
     }
 
-    if (dto.displayOrder !== undefined) {
-      facility.displayOrder = dto.displayOrder;
-    }
-
     facility.updatedBy = updater;
 
     await this.facilityRepository.manager.transaction(async (manager) => {
@@ -205,6 +246,11 @@ export class FacilitiesService {
       });
 
       await manager.softDelete(Facility, facility.id);
+      await compactCollection(
+        manager,
+        OrderingCollections.facilities,
+        deleter.id,
+      );
     });
   }
 

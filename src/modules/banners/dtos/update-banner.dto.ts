@@ -2,12 +2,10 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsDateString,
   IsEnum,
-  IsInt,
   IsOptional,
   IsString,
   IsUUID,
   MaxLength,
-  Min,
 } from 'class-validator';
 import {
   BannerLinkTarget,
@@ -90,12 +88,6 @@ export class BannerUpdateDto {
   @IsOptional()
   @IsEnum(BannerStatus)
   status?: BannerStatus;
-
-  @ApiPropertyOptional({ example: 0 })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  displayOrder?: number;
 
   @ApiPropertyOptional({ example: '2026-07-08T00:00:00.000Z' })
   @IsOptional()

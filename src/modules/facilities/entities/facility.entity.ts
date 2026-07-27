@@ -13,6 +13,10 @@ import {
 } from 'typeorm';
 
 @Entity('facilities')
+@Index('UQ_facilities_active_display_order', ['displayOrder'], {
+  unique: true,
+  where: '"deletedAt" IS NULL',
+})
 export class Facility extends BaseEntityCore {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

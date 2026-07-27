@@ -12,6 +12,10 @@ import {
 import { Post } from './post.entity';
 
 @Entity('post_categories')
+@Index('UQ_post_categories_active_display_order', ['displayOrder'], {
+  unique: true,
+  where: '"deletedAt" IS NULL',
+})
 export class PostCategory extends BaseEntityCore {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

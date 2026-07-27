@@ -12,6 +12,14 @@ import {
 import { SiteSettingValueType } from '../enums/site-setting.enum';
 
 @Entity('site_settings')
+@Index(
+  'UQ_site_settings_active_group_display_order',
+  ['group', 'displayOrder'],
+  {
+    unique: true,
+    where: '"deletedAt" IS NULL',
+  },
+)
 export class SiteSetting extends BaseEntityCore {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

@@ -7,6 +7,13 @@ import {
   getPaginationSkip,
   getPaginationTake,
 } from '@/cores/pagination/pagination-utils';
+import {
+  compactCollection,
+  getNextDisplayOrder,
+  lockOrderingCollections,
+  OrderingCollections,
+  reorderCollection,
+} from '@/cores/ordering/ordering.helper';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { EntityManager, Repository } from 'typeorm';
@@ -156,6 +163,46 @@ export class BannersService {
     return mapBannerToResponse(banner);
   }
 
+  async findReorderList(
+    placement: BannerPlacement,
+  ): Promise<BannerResponseDto[]> {
+    const banners = await this.bannerRepository.find({
+      where: { placement },
+      relations: {
+        imageAsset: true,
+        mobileImageAsset: true,
+        createdBy: true,
+        updatedBy: true,
+      },
+      order: {
+        displayOrder: 'ASC',
+        createdAt: 'ASC',
+        id: 'ASC',
+      },
+    });
+
+    return mapBannersToResponses(banners);
+  }
+
+  async reorder(
+    placement: BannerPlacement,
+    orderedIds: string[],
+    currentUser: AuthenticatedUser,
+  ): Promise<BannerResponseDto[]> {
+    const updater = await this.findCurrentUserOrThrow(currentUser);
+
+    await this.bannerRepository.manager.transaction(async (manager) => {
+      await reorderCollection(
+        manager,
+        OrderingCollections.banners(placement),
+        orderedIds,
+        updater.id,
+      );
+    });
+
+    return this.findReorderList(placement);
+  }
+
   async create(
     dto: BannerCreateDto,
     currentUser: AuthenticatedUser,
@@ -184,8 +231,13 @@ export class BannersService {
         ),
       ]);
       const repository = manager.getRepository(Banner);
+      const placement = dto.placement ?? BannerPlacement.HOMEPAGE_CAROUSEL;
+      const displayOrder = await getNextDisplayOrder(
+        manager,
+        OrderingCollections.banners(placement),
+      );
       const banner = repository.create({
-        placement: dto.placement ?? BannerPlacement.HOMEPAGE_CAROUSEL,
+        placement,
         titleEn: dto.titleEn,
         titleVi: dto.titleVi,
         subtitleEn: dto.subtitleEn,
@@ -198,7 +250,7 @@ export class BannersService {
         linkUrlVi: dto.linkUrlVi,
         linkTarget: dto.linkTarget ?? BannerLinkTarget.SELF,
         status: dto.status ?? BannerStatus.DRAFT,
-        displayOrder: dto.displayOrder ?? 0,
+        displayOrder,
         publishedAt,
         expiredAt,
         createdBy: creator,
@@ -218,6 +270,7 @@ export class BannersService {
   ): Promise<BannerResponseDto> {
     const updater = await this.findCurrentUserOrThrow(currentUser);
     const banner = await this.findEntityById(id);
+    const previousPlacement = banner.placement;
 
     const nextPublishedAt =
       dto.publishedAt !== undefined
@@ -248,13 +301,26 @@ export class BannersService {
     if (dto.linkUrlVi !== undefined) banner.linkUrlVi = dto.linkUrlVi;
     if (dto.linkTarget !== undefined) banner.linkTarget = dto.linkTarget;
     if (dto.status !== undefined) banner.status = dto.status;
-    if (dto.displayOrder !== undefined) banner.displayOrder = dto.displayOrder;
     if (dto.publishedAt !== undefined) banner.publishedAt = nextPublishedAt;
     if (dto.expiredAt !== undefined) banner.expiredAt = nextExpiredAt;
 
     banner.updatedBy = updater;
 
     await this.bannerRepository.manager.transaction(async (manager) => {
+      const placementChanged =
+        previousPlacement !== banner.placement && banner.placement !== null;
+      if (placementChanged) {
+        const collections = [OrderingCollections.banners(banner.placement!)];
+        if (previousPlacement) {
+          collections.push(OrderingCollections.banners(previousPlacement));
+        }
+        await lockOrderingCollections(manager, collections);
+        banner.displayOrder = await getNextDisplayOrder(
+          manager,
+          OrderingCollections.banners(banner.placement!),
+        );
+      }
+
       if (dto.imageAssetId !== undefined) {
         banner.imageAsset = await this.findImageAssetByIdOrThrow(
           dto.imageAssetId,
@@ -273,6 +339,13 @@ export class BannersService {
       }
 
       await manager.getRepository(Banner).save(banner);
+      if (placementChanged && previousPlacement) {
+        await compactCollection(
+          manager,
+          OrderingCollections.banners(previousPlacement),
+          updater.id,
+        );
+      }
     });
 
     return this.findOne(banner.id);
@@ -288,6 +361,13 @@ export class BannersService {
       });
 
       await manager.softDelete(Banner, banner.id);
+      if (banner.placement) {
+        await compactCollection(
+          manager,
+          OrderingCollections.banners(banner.placement),
+          deleter.id,
+        );
+      }
     });
   }
 

@@ -7,6 +7,13 @@ import {
   getPaginationSkip,
   getPaginationTake,
 } from '@/cores/pagination/pagination-utils';
+import {
+  compactCollection,
+  getNextDisplayOrder,
+  lockOrderingCollections,
+  OrderingCollections,
+  reorderCollection,
+} from '@/cores/ordering/ordering.helper';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { EntityManager, Repository } from 'typeorm';
@@ -158,6 +165,43 @@ export class SiteSettingsService {
     return mapSiteSettingToResponse(setting);
   }
 
+  async findReorderList(group: string): Promise<SiteSettingResponseDto[]> {
+    const settings = await this.siteSettingRepository.find({
+      where: { group },
+      relations: {
+        mediaAsset: true,
+        createdBy: true,
+        updatedBy: true,
+      },
+      order: {
+        displayOrder: 'ASC',
+        createdAt: 'ASC',
+        id: 'ASC',
+      },
+    });
+
+    return mapSiteSettingsToResponses(settings);
+  }
+
+  async reorder(
+    group: string,
+    orderedIds: string[],
+    currentUser: AuthenticatedUser,
+  ): Promise<SiteSettingResponseDto[]> {
+    const updater = await this.findCurrentUserOrThrow(currentUser);
+
+    await this.siteSettingRepository.manager.transaction(async (manager) => {
+      await reorderCollection(
+        manager,
+        OrderingCollections.siteSettings(group),
+        orderedIds,
+        updater.id,
+      );
+    });
+
+    return this.findReorderList(group);
+  }
+
   async create(
     dto: SiteSettingCreateDto,
     currentUser: AuthenticatedUser,
@@ -176,6 +220,10 @@ export class SiteSettingsService {
           ? await this.findImageAssetByIdOrThrow(dto.mediaAssetId, manager)
           : null;
       const repository = manager.getRepository(SiteSetting);
+      const displayOrder = await getNextDisplayOrder(
+        manager,
+        OrderingCollections.siteSettings(dto.group),
+      );
       const setting = repository.create({
         key: dto.key,
         group: dto.group,
@@ -188,7 +236,7 @@ export class SiteSettingsService {
         mediaAsset,
         isPublic: dto.isPublic ?? false,
         isEditable: dto.isEditable ?? true,
-        displayOrder: dto.displayOrder ?? 0,
+        displayOrder,
         createdBy: creator,
         updatedBy: creator,
       });
@@ -206,6 +254,7 @@ export class SiteSettingsService {
   ): Promise<SiteSettingResponseDto> {
     const updater = await this.findCurrentUserOrThrow(currentUser);
     const setting = await this.findEntityById(id);
+    const previousGroup = setting.group;
 
     if (!setting.isEditable) {
       throw AppError.badRequest(AppErrorCode.SITE_SETTING_NOT_EDITABLE);
@@ -232,13 +281,21 @@ export class SiteSettingsService {
     setting.valueType = nextValueType;
     if (dto.isPublic !== undefined) setting.isPublic = dto.isPublic;
     if (dto.isEditable !== undefined) setting.isEditable = dto.isEditable;
-    if (dto.displayOrder !== undefined) {
-      setting.displayOrder = dto.displayOrder;
-    }
-
     setting.updatedBy = updater;
 
     await this.siteSettingRepository.manager.transaction(async (manager) => {
+      const groupChanged = previousGroup !== setting.group;
+      if (groupChanged) {
+        await lockOrderingCollections(manager, [
+          OrderingCollections.siteSettings(previousGroup),
+          OrderingCollections.siteSettings(setting.group),
+        ]);
+        setting.displayOrder = await getNextDisplayOrder(
+          manager,
+          OrderingCollections.siteSettings(setting.group),
+        );
+      }
+
       if (nextValueType === SiteSettingValueType.MEDIA_ASSET) {
         if (dto.mediaAssetId !== undefined) {
           setting.mediaAsset = await this.findImageAssetByIdOrThrow(
@@ -253,6 +310,13 @@ export class SiteSettingsService {
       }
 
       await manager.getRepository(SiteSetting).save(setting);
+      if (groupChanged) {
+        await compactCollection(
+          manager,
+          OrderingCollections.siteSettings(previousGroup),
+          updater.id,
+        );
+      }
     });
 
     return this.findOne(setting.id);
@@ -272,6 +336,11 @@ export class SiteSettingsService {
       });
 
       await manager.softDelete(SiteSetting, setting.id);
+      await compactCollection(
+        manager,
+        OrderingCollections.siteSettings(setting.group),
+        deleter.id,
+      );
     });
   }
 

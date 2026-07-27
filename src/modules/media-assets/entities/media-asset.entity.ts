@@ -14,6 +14,10 @@ import { MediaAssetType, MediaAssetUsage } from '../enums/media-asset.enum';
 @Index('IDX_media_assets_deleted_at', ['deletedAt'], {
   where: '"deletedAt" IS NOT NULL',
 })
+@Index('UQ_media_assets_active_display_order', ['displayOrder'], {
+  unique: true,
+  where: '"deletedAt" IS NULL',
+})
 export class MediaAsset extends BaseEntityCore {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
