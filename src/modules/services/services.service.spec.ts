@@ -10,29 +10,61 @@ import { ServiceVariant } from './entities/service-variant.entity';
 import { Service } from './entities/service.entity';
 import { ServiceSkillLevel, ServiceStatus } from './enums/service.enum';
 import { ServicesService } from './services.service';
+import { MediaAsset } from '../media-assets/entities/media-asset.entity';
+import {
+  MediaAssetType,
+  MediaAssetUsage,
+} from '../media-assets/enums/media-asset.enum';
+import { MediaAssetReferencesService } from '../media-assets/media-asset-references.service';
 
 describe('ServicesService', () => {
   let service: ServicesService;
 
   const serviceRepository = {
+    createQueryBuilder: jest.fn(),
     findOne: jest.fn(),
+    manager: {
+      transaction: jest.fn(),
+    },
   };
   const userRepository = {
     findOne: jest.fn(),
   };
+  const mediaAssetReferencesService = {
+    validateImageSelection: jest.fn(),
+  };
   const variantQueryBuilder = {
     innerJoinAndSelect: jest.fn().mockReturnThis(),
+    leftJoinAndSelect: jest.fn().mockReturnThis(),
+    clone: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    addOrderBy: jest.fn().mockReturnThis(),
+    offset: jest.fn().mockReturnThis(),
+    limit: jest.fn().mockReturnThis(),
+    skip: jest.fn().mockReturnThis(),
+    take: jest.fn().mockReturnThis(),
+    getCount: jest.fn(),
+    getRawMany: jest.fn(),
+    getMany: jest.fn(),
+    getManyAndCount: jest.fn(),
+    getOne: jest.fn(),
+  };
+  const serviceQueryBuilder = {
     leftJoinAndSelect: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
     addOrderBy: jest.fn().mockReturnThis(),
-    skip: jest.fn().mockReturnThis(),
-    take: jest.fn().mockReturnThis(),
-    getManyAndCount: jest.fn(),
-    getOne: jest.fn(),
+    getMany: jest.fn(),
   };
-  const transactionServiceRepository = { findOne: jest.fn() };
+  const transactionServiceRepository = {
+    create: jest.fn((value: Partial<Service>) => value),
+    findOne: jest.fn(),
+    save: jest.fn(),
+  };
   const transactionClubRepository = { find: jest.fn() };
   const transactionVariantRepository = {
     create: jest.fn((value: Partial<ServiceVariant>) => value),
@@ -111,6 +143,7 @@ describe('ServicesService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    serviceRepository.createQueryBuilder.mockReturnValue(serviceQueryBuilder);
     userRepository.findOne.mockResolvedValue(user);
     serviceVariantRepository.findOne.mockResolvedValue(null);
     transactionServiceRepository.findOne.mockResolvedValue(parentService);
@@ -132,6 +165,15 @@ describe('ServicesService', () => {
         callback: (transactionManager: typeof manager) => Promise<unknown>,
       ): Promise<unknown> => callback(manager),
     );
+    serviceRepository.manager.transaction.mockImplementation(
+      (
+        callback: (transactionManager: typeof manager) => Promise<unknown>,
+      ): Promise<unknown> => callback(manager),
+    );
+    mediaAssetReferencesService.validateImageSelection.mockImplementation(
+      (id: string | null | undefined) =>
+        Promise.resolve({ asset: id ? { id } : null, warnings: [] }),
+    );
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -148,6 +190,10 @@ describe('ServicesService', () => {
           provide: getRepositoryToken(ServiceVariant),
           useValue: serviceVariantRepository,
         },
+        {
+          provide: MediaAssetReferencesService,
+          useValue: mediaAssetReferencesService,
+        },
       ],
     }).compile();
 
@@ -156,6 +202,150 @@ describe('ServicesService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  it('packages every published variant under its published service without pagination', async () => {
+    const variantB = buildVariant({
+      id: 'variant-b',
+      nameEn: 'Yoga',
+      nameVi: 'Yoga VI',
+      displayOrder: 2,
+      clubs: [clubA, clubB],
+    });
+    const variantA = buildVariant({
+      id: 'variant-a',
+      nameEn: 'Strength',
+      nameVi: 'Suc manh',
+      displayOrder: 1,
+      clubs: [clubB],
+    });
+    const publishedService = {
+      ...parentService,
+      shortDescriptionEn: 'Classes',
+      shortDescriptionVi: 'Lop hoc',
+      descriptionEn: 'English description',
+      descriptionVi: 'Vietnamese description',
+      imageUrl: null,
+      imageAsset: null,
+      displayOrder: 1,
+      isFeatured: false,
+      variants: [variantB, variantA, variantA],
+    } as unknown as Service;
+    const emptyService = {
+      ...publishedService,
+      id: 'service-2',
+      slug: 'personal-training',
+      displayOrder: 2,
+      variants: [],
+    } as Service;
+    serviceQueryBuilder.getMany.mockResolvedValue([
+      publishedService,
+      emptyService,
+    ]);
+
+    const result = await service.findPublicServices();
+
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual(
+      expect.objectContaining({
+        id: parentService.id,
+        shortDescriptionVi: 'Lop hoc',
+        descriptionEn: 'English description',
+      }),
+    );
+    expect(result[0].variants.map((variant) => variant.id)).toEqual([
+      'variant-a',
+      'variant-b',
+    ]);
+    expect(result[0].variants[0]).toEqual(
+      expect.objectContaining({
+        serviceId: parentService.id,
+        nameVi: 'Suc manh',
+        bannerImageUrl: '/images/strength-banner.jpg',
+        modelImageUrl: 'https://example.com/strength-model.jpg',
+        clubs: [expect.objectContaining({ id: clubB.id })],
+      }),
+    );
+    expect(result[1].variants).toEqual([]);
+    expect(serviceQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+      'service.variants',
+      'variant',
+      'variant.status = :variantStatus AND variant.deletedAt IS NULL',
+      { variantStatus: ServiceStatus.PUBLISHED },
+    );
+    expect(serviceQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+      'variant.clubs',
+      'club',
+      'club.status = :clubStatus AND club.deletedAt IS NULL',
+      { clubStatus: ClubStatus.PUBLISHED },
+    );
+    expect(serviceQueryBuilder.where).toHaveBeenCalledWith(
+      'service.status = :serviceStatus',
+      { serviceStatus: ServiceStatus.PUBLISHED },
+    );
+    expect(serviceQueryBuilder).not.toHaveProperty('take');
+    expect(serviceQueryBuilder).not.toHaveProperty('skip');
+  });
+
+  it('propagates public services query failures', async () => {
+    const queryError = new Error('database unavailable');
+    serviceQueryBuilder.getMany.mockRejectedValue(queryError);
+
+    await expect(service.findPublicServices()).rejects.toBe(queryError);
+  });
+
+  it('resolves and assigns a managed image when creating a service', async () => {
+    const imageAsset = {
+      id: 'asset-service',
+      name: 'Service card',
+      url: '/media/service-card.jpg',
+      type: MediaAssetType.IMAGE,
+      usage: MediaAssetUsage.SERVICE,
+      isActive: true,
+    } as MediaAsset;
+    const savedService = {
+      ...parentService,
+      imageAssetId: imageAsset.id,
+      imageAsset,
+      displayOrder: 0,
+      isFeatured: false,
+      variants: [],
+      createdAt: new Date('2026-07-16T00:00:00.000Z'),
+      updatedAt: new Date('2026-07-16T00:00:00.000Z'),
+    } as Service;
+    serviceRepository.findOne
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(savedService);
+    transactionServiceRepository.save.mockResolvedValue(savedService);
+    mediaAssetReferencesService.validateImageSelection.mockResolvedValue({
+      asset: imageAsset,
+      warnings: [],
+    });
+
+    const result = await service.create(
+      {
+        nameEn: parentService.nameEn,
+        nameVi: parentService.nameVi,
+        imageAssetId: imageAsset.id,
+      },
+      currentUser,
+    );
+
+    expect(
+      mediaAssetReferencesService.validateImageSelection,
+    ).toHaveBeenCalledWith(
+      imageAsset.id,
+      expect.objectContaining({
+        compatibleUsages: [MediaAssetUsage.GENERAL, MediaAssetUsage.SERVICE],
+      }),
+    );
+    expect(transactionServiceRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ imageAsset }),
+    );
+    expect(result.imageAssetId).toBe(imageAsset.id);
+    expect(result.imageAsset).toEqual(
+      expect.objectContaining({ id: imageAsset.id, url: imageAsset.url }),
+    );
   });
 
   it('returns only the requested page of published variants', async () => {
@@ -236,6 +426,37 @@ describe('ServicesService', () => {
     expect(serviceVariantRepository.createQueryBuilder).not.toHaveBeenCalled();
   });
 
+  it('paginates variant IDs before loading to-many clubs and restores page order', async () => {
+    const query = Object.assign(new PaginationQueryDto(), {
+      page: 2,
+      limit: 2,
+    });
+    const first = buildVariant({ id: 'variant-1', displayOrder: 1 });
+    const second = buildVariant({ id: 'variant-2', displayOrder: 2 });
+    serviceRepository.findOne.mockResolvedValue(parentService);
+    variantQueryBuilder.getCount.mockResolvedValue(4);
+    variantQueryBuilder.getRawMany.mockResolvedValue([
+      { id: first.id },
+      { id: second.id },
+    ]);
+    variantQueryBuilder.getMany.mockResolvedValue([second, first]);
+
+    const result = await service.findAllVariants('service-1', query);
+
+    expect(variantQueryBuilder.offset).toHaveBeenCalledWith(2);
+    expect(variantQueryBuilder.limit).toHaveBeenCalledWith(2);
+    expect(variantQueryBuilder.getManyAndCount).not.toHaveBeenCalled();
+    expect(variantQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+      'variant.clubs',
+      'club',
+    );
+    expect(result.data.map((variant) => variant.id)).toEqual([
+      first.id,
+      second.id,
+    ]);
+    expect(result.meta.totalItems).toBe(4);
+  });
+
   it('creates banner/model URLs and inherits service clubs when clubIds is omitted', async () => {
     const savedVariant = buildVariant({ clubs: [clubA, clubB] });
     serviceVariantRepository.findOne
@@ -265,6 +486,53 @@ describe('ServicesService', () => {
         bannerImageUrl: '/images/strength-banner.jpg',
         modelImageUrl: 'https://example.com/strength-model.jpg',
       }),
+    );
+  });
+
+  it('resolves a managed image asset for a fixed variant slot', async () => {
+    const imageAsset = {
+      id: 'asset-1',
+      type: MediaAssetType.IMAGE,
+      name: 'Variant card',
+      url: '/media/variant-card.jpg',
+      isActive: true,
+    } as MediaAsset;
+    const savedVariant = buildVariant({
+      imageAssetId: imageAsset.id,
+      imageAsset,
+    });
+    mediaAssetReferencesService.validateImageSelection.mockResolvedValue({
+      asset: imageAsset,
+      warnings: [],
+    });
+    serviceVariantRepository.findOne
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(savedVariant);
+
+    const result = await service.createVariant(
+      'service-1',
+      {
+        nameEn: 'Strength Foundations',
+        nameVi: 'Strength Foundations',
+        imageAssetId: imageAsset.id,
+      },
+      currentUser,
+    );
+
+    expect(
+      mediaAssetReferencesService.validateImageSelection,
+    ).toHaveBeenCalledWith(
+      imageAsset.id,
+      expect.objectContaining({
+        compatibleUsages: [MediaAssetUsage.GENERAL, MediaAssetUsage.SERVICE],
+      }),
+    );
+    expect(transactionVariantRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ imageAsset }),
+    );
+    expect(result.imageAssetId).toBe(imageAsset.id);
+    expect(result.imageAsset).toEqual(
+      expect.objectContaining({ id: imageAsset.id, url: imageAsset.url }),
     );
   });
 
@@ -386,6 +654,48 @@ describe('ServicesService', () => {
     );
   });
 
+  it('clears a managed variant image only when imageAssetId is explicit null', async () => {
+    const imageAsset = {
+      id: 'asset-1',
+      name: 'Variant card',
+      url: '/media/variant-card.jpg',
+      type: MediaAssetType.IMAGE,
+      usage: MediaAssetUsage.SERVICE,
+      isActive: true,
+    } as MediaAsset;
+    const variant = buildVariant({
+      imageAssetId: imageAsset.id,
+      imageAsset,
+    });
+    serviceVariantRepository.findOne
+      .mockResolvedValueOnce(variant)
+      .mockResolvedValueOnce(
+        buildVariant({ imageAssetId: null, imageAsset: null }),
+      );
+    transactionVariantRepository.findOne.mockResolvedValue(variant);
+
+    const result = await service.updateVariant(
+      'service-1',
+      'variant-1',
+      { imageAssetId: null },
+      currentUser,
+    );
+
+    expect(
+      mediaAssetReferencesService.validateImageSelection,
+    ).toHaveBeenCalledWith(
+      null,
+      expect.objectContaining({
+        compatibleUsages: [MediaAssetUsage.GENERAL, MediaAssetUsage.SERVICE],
+      }),
+    );
+    expect(transactionVariantRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ imageAsset: null }),
+    );
+    expect(result.imageAssetId).toBeNull();
+    expect(result.imageAsset).toBeNull();
+  });
+
   it('replaces club assignments when update clubIds are supplied', async () => {
     const variant = buildVariant({ clubs: [clubA] });
     serviceVariantRepository.findOne
@@ -441,6 +751,34 @@ describe('ServicesService', () => {
       'club',
       'club.status = :clubStatus AND club.deletedAt IS NULL',
       { clubStatus: ClubStatus.PUBLISHED },
+    );
+  });
+
+  it('keeps an already-assigned inactive image in published variant detail', async () => {
+    const inactiveAsset = {
+      id: 'asset-inactive',
+      url: '/media/inactive-but-assigned.jpg',
+      type: MediaAssetType.IMAGE,
+      usage: MediaAssetUsage.SERVICE,
+      isActive: false,
+    } as MediaAsset;
+    variantQueryBuilder.getOne.mockResolvedValue(
+      buildVariant({
+        imageAssetId: inactiveAsset.id,
+        imageAsset: inactiveAsset,
+      }),
+    );
+
+    const result = await service.findPublicServiceVariantBySlug(
+      'group-classes',
+      'strength-foundations',
+    );
+
+    expect(result.imageAsset).toEqual(
+      expect.objectContaining({
+        id: inactiveAsset.id,
+        url: inactiveAsset.url,
+      }),
     );
   });
 

@@ -22,10 +22,11 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "typeorm": "node -r tsconfig-paths/register ./node_modules/typeorm/cli-ts-node-commonjs.js",
     "migration:generate": "npm run typeorm -- migration:generate -d src/database/data-source.ts src/database/migrations/init",
-        "migration:show": "npm run typeorm -- migration:show -d src/database/data-source.ts",
+    "migration:show": "npm run typeorm -- migration:show -d src/database/data-source.ts",
     "migration:run": "npm run typeorm -- migration:run -d src/database/data-source.ts",
     "import:post-content": "ts-node -r tsconfig-paths/register src/database/imports/import-post-content.ts",
     "import:service-media": "ts-node -r tsconfig-paths/register src/database/imports/import-service-media.ts",
+    "import:editorial-media": "ts-node -r tsconfig-paths/register src/database/imports/import-editorial-media.ts",
     "seed": "ts-node -r tsconfig-paths/register src/database/seeds/admin-seeds.ts",
     "seed:permissions": "ts-node -r tsconfig-paths/register src/database/seeds/permission-seeds.ts"
   },

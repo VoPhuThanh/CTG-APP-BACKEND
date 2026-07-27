@@ -1,15 +1,10 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { SiteSettingsService } from './site-settings.service';
 
 describe('SiteSettingsService', () => {
   let service: SiteSettingsService;
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [SiteSettingsService],
-    }).compile();
-
-    service = module.get<SiteSettingsService>(SiteSettingsService);
+  beforeEach(() => {
+    service = new SiteSettingsService({} as never, {} as never, {} as never);
   });
 
   it('should be defined', () => {

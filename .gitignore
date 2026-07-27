@@ -58,3 +58,13 @@ pids
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Local-only files
+scripts/
+
+# Generated LLM context packs
+*-context.md
+context-pack.md
+
+# Development-managed uploads
+/uploads/

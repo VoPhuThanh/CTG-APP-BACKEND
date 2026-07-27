@@ -31,6 +31,21 @@
 $ npm install
 ```
 
+## Local infrastructure
+
+Copy `.env.example` to `.env`, choose local-only credentials, then start
+PostgreSQL and MinIO:
+
+```bash
+docker compose up -d database minio minio-init
+```
+
+MinIO API: `http://localhost:9000`. Development console:
+`http://localhost:9001`. Named volumes preserve PostgreSQL and MinIO data;
+do not use `docker compose down -v` for normal setup. See
+`docs/MEDIA_STORAGE.md` for host-vs-container endpoints, production HTTPS,
+backup, and bucket-bootstrap requirements.
+
 ## Compile and run the project
 
 ```bash
@@ -56,6 +71,20 @@ $ npm run test:e2e
 # test coverage
 $ npm run test:cov
 ```
+
+## Import remaining legacy editorial media
+
+The remaining banner, club, facility, membership-level, and site-setting image
+URLs can be planned and imported through the shared managed-media storage path.
+The command is dry-run unless `--apply` is supplied:
+
+```bash
+npm run import:editorial-media -- --source-dir=D:\path\to\frontend\public --report=D:\path\to\editorial-media-report.json
+npm run import:editorial-media -- --apply --source-dir=D:\path\to\frontend\public --report=D:\path\to\editorial-media-apply-report.json
+```
+
+See `docs/EDITORIAL_MEDIA_IMPORT.md` for safety limits, reports, and recovery
+behavior.
 
 ## Deployment
 
