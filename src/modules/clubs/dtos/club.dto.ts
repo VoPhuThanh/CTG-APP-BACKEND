@@ -1,0 +1,113 @@
+import { MetadataResponseDto } from '@/cores/dtos/metadata.dto';
+import { MediaAssetSummaryResponseDto } from '@/modules/media-assets/dtos/media-asset.dto';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ClubStatus } from '../enums/club.enum';
+import { ClubGalleryMediaResponseDto } from './club-gallery-media.dto';
+
+export class ClubFacilitySummaryDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  nameEn!: string;
+
+  @ApiProperty()
+  nameVi!: string;
+
+  @ApiProperty()
+  slug!: string;
+
+  @ApiProperty()
+  isActive!: boolean;
+}
+
+export class ClubServiceSummaryDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  nameEn!: string;
+
+  @ApiProperty()
+  nameVi!: string;
+
+  @ApiProperty()
+  slug!: string;
+
+  @ApiProperty()
+  status!: string;
+}
+
+export class ClubResponseDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  nameEn!: string;
+
+  @ApiProperty()
+  nameVi!: string;
+
+  @ApiProperty()
+  slug!: string;
+
+  @ApiProperty()
+  addressEn!: string;
+
+  @ApiProperty()
+  addressVi!: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  openingHoursTextEn!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  openingHoursTextVi!: string | null;
+
+  @ApiProperty({ type: [String] })
+  phoneNumbers!: string[];
+
+  @ApiPropertyOptional({ nullable: true })
+  shortDescriptionEn!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  shortDescriptionVi!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  descriptionEn!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  descriptionVi!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
+  coverImageUrl!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, format: 'uuid' })
+  coverImageAssetId!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, type: MediaAssetSummaryResponseDto })
+  coverImageAsset!: MediaAssetSummaryResponseDto | null;
+
+  @ApiProperty({ type: [String], deprecated: true })
+  galleryImageUrls!: string[];
+
+  @ApiProperty({ type: [ClubGalleryMediaResponseDto] })
+  galleryMedia!: ClubGalleryMediaResponseDto[];
+
+  @ApiProperty({ enum: ClubStatus })
+  status!: ClubStatus;
+
+  @ApiProperty()
+  displayOrder!: number;
+
+  @ApiProperty()
+  isFeatured!: boolean;
+
+  @ApiProperty({ type: [ClubFacilitySummaryDto] })
+  facilities!: ClubFacilitySummaryDto[];
+
+  @ApiProperty({ type: [ClubServiceSummaryDto] })
+  services!: ClubServiceSummaryDto[];
+
+  @ApiProperty()
+  metadata!: MetadataResponseDto;
+}
