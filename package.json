@@ -24,11 +24,20 @@
     "migration:generate": "npm run typeorm -- migration:generate -d src/database/data-source.ts src/database/migrations/init",
     "migration:show": "npm run typeorm -- migration:show -d src/database/data-source.ts",
     "migration:run": "npm run typeorm -- migration:run -d src/database/data-source.ts",
+    "migration:show:prod": "node ./node_modules/typeorm/cli.js migration:show -d dist/database/data-source.js",
+    "migration:run:prod": "node ./node_modules/typeorm/cli.js migration:run -d dist/database/data-source.js",
+    "migration:revert:prod": "node ./node_modules/typeorm/cli.js migration:revert -d dist/database/data-source.js",
     "import:post-content": "ts-node -r tsconfig-paths/register src/database/imports/import-post-content.ts",
     "import:service-media": "ts-node -r tsconfig-paths/register src/database/imports/import-service-media.ts",
     "import:editorial-media": "ts-node -r tsconfig-paths/register src/database/imports/import-editorial-media.ts",
+    "normalize:media-storage": "ts-node -r tsconfig-paths/register src/database/imports/normalize-media-storage.ts",
+    "normalize:media-storage:prod": "node dist/database/imports/normalize-media-storage.js",
+    "normalize:legacy-media-urls": "ts-node -r tsconfig-paths/register src/database/imports/normalize-legacy-media-urls.ts",
+    "normalize:legacy-media-urls:prod": "node dist/database/imports/normalize-legacy-media-urls.js",
     "seed": "ts-node -r tsconfig-paths/register src/database/seeds/admin-seeds.ts",
-    "seed:permissions": "ts-node -r tsconfig-paths/register src/database/seeds/permission-seeds.ts"
+    "seed:prod": "node dist/database/seeds/admin-seeds.js",
+    "seed:permissions": "ts-node -r tsconfig-paths/register src/database/seeds/permission-seeds.ts",
+    "seed:permissions:prod": "node dist/database/seeds/permission-seeds.js"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

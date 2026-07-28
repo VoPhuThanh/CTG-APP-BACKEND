@@ -31,7 +31,9 @@ describe('MediaAssetsController upload endpoint', () => {
     publicPath: '/uploads/media',
     publicBaseUrl: null,
     cacheControl: 'public, max-age=31536000, immutable',
+    bucket: null,
     minio: null,
+    s3: null,
     maxFileSizeBytes: 1024,
     allowedMimeTypes: new Set([
       'image/jpeg',

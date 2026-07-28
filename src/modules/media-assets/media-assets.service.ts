@@ -487,10 +487,7 @@ export class MediaAssetsService {
               name: input.name.slice(0, 150),
               url: null,
               storageProvider: this.storageProvider.name,
-              bucket:
-                this.storageProvider.name === 'minio'
-                  ? (this.storageConfig.minio?.bucket ?? null)
-                  : null,
+              bucket: this.storageConfig.bucket,
               storageKey,
               originalFilename: this.sanitizeOriginalFilename(
                 input.originalFilename,

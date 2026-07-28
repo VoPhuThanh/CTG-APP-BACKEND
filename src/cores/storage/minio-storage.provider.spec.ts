@@ -8,6 +8,7 @@ describe('MinioStorageProvider', () => {
     publicPath: '/uploads/media',
     publicBaseUrl: 'http://localhost:9000/ctg-media',
     cacheControl: 'public, max-age=31536000, immutable',
+    bucket: 'ctg-media',
     minio: {
       endpoint: 'minio',
       port: 9000,
@@ -17,6 +18,7 @@ describe('MinioStorageProvider', () => {
       bucket: 'ctg-media',
       region: 'us-east-1',
     },
+    s3: null,
     maxFileSizeBytes: 1024,
     allowedMimeTypes: new Set(['image/png']),
   };
@@ -87,5 +89,45 @@ describe('MinioStorageProvider', () => {
     client.bucketExists.mockResolvedValueOnce(false);
 
     await expect(provider.onModuleInit()).rejects.toThrow('does not exist');
+  });
+
+  it('persists the generic s3 provider label for an R2-compatible endpoint', async () => {
+    const provider = new MinioStorageProvider({
+      ...config,
+      provider: 's3',
+      bucket: 'ctg-media',
+      minio: null,
+      s3: {
+        endpoint: 'https://account-id.r2.cloudflarestorage.com',
+        endpointHost: 'account-id.r2.cloudflarestorage.com',
+        port: 443,
+        useSsl: true,
+        accessKey: 'access-key',
+        secretKey: 'secret-key',
+        bucket: 'ctg-media',
+        region: 'auto',
+        forcePathStyle: true,
+      },
+    });
+    const client = {
+      putObject: jest.fn().mockResolvedValue({ etag: 'etag' }),
+    };
+    (
+      provider as unknown as {
+        client: typeof client;
+      }
+    ).client = client;
+
+    await expect(
+      provider.write({
+        key: 'images/asset.webp',
+        body: Buffer.from('abc'),
+        contentType: 'image/webp',
+      }),
+    ).resolves.toEqual({
+      key: 'images/asset.webp',
+      provider: 's3',
+      bucket: 'ctg-media',
+    });
   });
 });

@@ -5,15 +5,25 @@ services:
     restart: always
 
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: PhuThanh2004
-      POSTGRES_DB: project_db
+      POSTGRES_USER: ${DATABASE_USER:-admin}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?Set DATABASE_PASSWORD in .env}
+      POSTGRES_DB: ${DATABASE_NAME:-project_db}
 
     ports:
-      - '5433:5432'
+      - '${DATABASE_EXPOSED_PORT:-5433}:5432'
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
 
   minio:
     image: quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
@@ -21,8 +31,8 @@ services:
     restart: always
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-ctg-local-access}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-ctg-local-secret-change-me}
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?Set MINIO_ACCESS_KEY in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?Set MINIO_SECRET_KEY in .env}
     ports:
       - '9000:9000'
       - '9001:9001'
@@ -43,8 +53,8 @@ services:
       minio:
         condition: service_healthy
     environment:
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-ctg-local-access}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-ctg-local-secret-change-me}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?Set MINIO_ACCESS_KEY in .env}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?Set MINIO_SECRET_KEY in .env}
       MINIO_BUCKET: ${MINIO_BUCKET:-ctg-media}
     entrypoint:
       - /bin/sh

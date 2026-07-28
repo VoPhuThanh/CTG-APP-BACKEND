@@ -18,9 +18,11 @@ export const DEFAULT_MEDIA_CACHE_CONTROL =
   'public, max-age=31536000, immutable';
 export const LOCAL_STORAGE_PROVIDER_NAME = 'local';
 export const MINIO_STORAGE_PROVIDER_NAME = 'minio';
+export const S3_STORAGE_PROVIDER_NAME = 's3';
 export const MEDIA_STORAGE_PROVIDER_NAMES = [
   LOCAL_STORAGE_PROVIDER_NAME,
   MINIO_STORAGE_PROVIDER_NAME,
+  S3_STORAGE_PROVIDER_NAME,
 ] as const;
 
 export type MediaStorageProviderName =
@@ -36,13 +38,27 @@ export interface MinioStorageConfig {
   region: string;
 }
 
+export interface S3StorageConfig {
+  endpoint: string;
+  endpointHost: string;
+  port: number;
+  useSsl: boolean;
+  accessKey: string;
+  secretKey: string;
+  bucket: string;
+  region: string;
+  forcePathStyle: boolean;
+}
+
 export interface MediaStorageConfig {
   provider: MediaStorageProviderName;
   localDirectory: string;
   publicPath: string;
   publicBaseUrl: string | null;
   cacheControl: string;
+  bucket: string | null;
   minio: MinioStorageConfig | null;
+  s3: S3StorageConfig | null;
   maxFileSizeBytes: number;
   allowedMimeTypes: ReadonlySet<SupportedImageMimeType>;
 }
@@ -79,6 +95,29 @@ function parsePublicPath(value: string): string {
   return normalized;
 }
 
+export function isLocalNetworkHostname(hostname: string): boolean {
+  const normalized = hostname.trim().toLowerCase();
+
+  return (
+    normalized === 'localhost' ||
+    normalized === '0.0.0.0' ||
+    normalized === '::' ||
+    normalized === '[::]' ||
+    normalized === '::1' ||
+    normalized === '[::1]' ||
+    normalized === 'host.docker.internal' ||
+    normalized === 'minio' ||
+    normalized === 'database' ||
+    normalized === 'db' ||
+    normalized === 'postgres' ||
+    normalized === '127.0.0.1' ||
+    normalized.startsWith('127.') ||
+    normalized.startsWith('10.') ||
+    normalized.startsWith('192.168.') ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(normalized)
+  );
+}
+
 function parsePublicBaseUrl(value: string | undefined): string | null {
   const normalized = value?.trim();
   if (!normalized) return null;
@@ -92,7 +131,9 @@ function parsePublicBaseUrl(value: string | undefined): string | null {
 
   if (
     !['http:', 'https:'].includes(url.protocol) ||
-    url.hostname.toLowerCase() === 'minio' ||
+    ['minio', 'database', 'db', 'postgres'].includes(
+      url.hostname.toLowerCase(),
+    ) ||
     url.username ||
     url.password ||
     url.search ||
@@ -103,7 +144,8 @@ function parsePublicBaseUrl(value: string | undefined): string | null {
     );
   }
 
-  return normalized.replace(/\/+$/, '');
+  const pathname = url.pathname.replace(/\/+/g, '/').replace(/\/+$/, '');
+  return `${url.origin}${pathname}`;
 }
 
 function parseBoolean(value: string | undefined, name: string): boolean {
@@ -170,6 +212,77 @@ function parseMinioConfig(config: ConfigService): MinioStorageConfig {
   };
 }
 
+function parseS3Config(config: ConfigService): S3StorageConfig {
+  const endpoint = parseRequiredString(
+    config.get<string>('MEDIA_STORAGE_ENDPOINT'),
+    'MEDIA_STORAGE_ENDPOINT',
+  );
+
+  let endpointUrl: URL;
+  try {
+    endpointUrl = new URL(endpoint);
+  } catch {
+    throw new Error(
+      'MEDIA_STORAGE_ENDPOINT must be a valid HTTP(S) endpoint URL.',
+    );
+  }
+
+  if (
+    !['http:', 'https:'].includes(endpointUrl.protocol) ||
+    endpointUrl.username ||
+    endpointUrl.password ||
+    (endpointUrl.pathname !== '/' && endpointUrl.pathname !== '') ||
+    endpointUrl.search ||
+    endpointUrl.hash
+  ) {
+    throw new Error(
+      'MEDIA_STORAGE_ENDPOINT must contain only an HTTP(S) scheme, hostname, and optional port.',
+    );
+  }
+
+  const bucket = parseRequiredString(
+    config.get<string>('MEDIA_STORAGE_BUCKET'),
+    'MEDIA_STORAGE_BUCKET',
+  );
+  if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(bucket)) {
+    throw new Error(
+      'MEDIA_STORAGE_BUCKET must be a valid lowercase S3 bucket name.',
+    );
+  }
+
+  const forcePathStyle = parseBoolean(
+    config.get<string>('MEDIA_STORAGE_FORCE_PATH_STYLE') ?? 'true',
+    'MEDIA_STORAGE_FORCE_PATH_STYLE',
+  );
+  if (!forcePathStyle) {
+    throw new Error(
+      'MEDIA_STORAGE_FORCE_PATH_STYLE must be true for the configured S3-compatible client.',
+    );
+  }
+
+  return {
+    endpoint: endpointUrl.origin,
+    endpointHost: endpointUrl.hostname,
+    port: endpointUrl.port
+      ? parsePositiveInteger(endpointUrl.port, 'MEDIA_STORAGE_ENDPOINT port')
+      : endpointUrl.protocol === 'https:'
+        ? 443
+        : 80,
+    useSsl: endpointUrl.protocol === 'https:',
+    accessKey: parseRequiredString(
+      config.get<string>('MEDIA_STORAGE_ACCESS_KEY_ID'),
+      'MEDIA_STORAGE_ACCESS_KEY_ID',
+    ),
+    secretKey: parseRequiredString(
+      config.get<string>('MEDIA_STORAGE_SECRET_ACCESS_KEY'),
+      'MEDIA_STORAGE_SECRET_ACCESS_KEY',
+    ),
+    bucket,
+    region: config.get<string>('MEDIA_STORAGE_REGION')?.trim() || 'us-east-1',
+    forcePathStyle,
+  };
+}
+
 function parseAllowedMimeTypes(
   value: string | undefined,
 ): ReadonlySet<SupportedImageMimeType> {
@@ -222,15 +335,20 @@ export function getMediaStorageConfig(
   const publicBaseUrl = parsePublicBaseUrl(
     config.get<string>('MEDIA_PUBLIC_BASE_URL'),
   );
-  if (provider === MINIO_STORAGE_PROVIDER_NAME && !publicBaseUrl) {
+  if (provider !== LOCAL_STORAGE_PROVIDER_NAME && !publicBaseUrl) {
     throw new Error(
-      'MEDIA_PUBLIC_BASE_URL is required when MEDIA_STORAGE_PROVIDER=minio.',
+      'MEDIA_PUBLIC_BASE_URL is required for managed remote media storage.',
     );
   }
 
   const cacheControl =
     config.get<string>('MEDIA_CACHE_CONTROL')?.trim() ||
     DEFAULT_MEDIA_CACHE_CONTROL;
+
+  const minio =
+    provider === MINIO_STORAGE_PROVIDER_NAME ? parseMinioConfig(config) : null;
+  const s3 =
+    provider === S3_STORAGE_PROVIDER_NAME ? parseS3Config(config) : null;
 
   return {
     provider: provider as MediaStorageProviderName,
@@ -240,10 +358,9 @@ export function getMediaStorageConfig(
     ),
     publicBaseUrl,
     cacheControl,
-    minio:
-      provider === MINIO_STORAGE_PROVIDER_NAME
-        ? parseMinioConfig(config)
-        : null,
+    bucket: minio?.bucket ?? s3?.bucket ?? null,
+    minio,
+    s3,
     maxFileSizeBytes: parsePositiveInteger(
       config.get<string>('MEDIA_UPLOAD_MAX_FILE_SIZE_BYTES') ??
         String(DEFAULT_MEDIA_UPLOAD_MAX_FILE_SIZE_BYTES),
@@ -253,11 +370,4 @@ export function getMediaStorageConfig(
       config.get<string>('MEDIA_UPLOAD_ALLOWED_MIME_TYPES'),
     ),
   };
-}
-
-export function validateEnvironment(
-  environment: Record<string, unknown>,
-): Record<string, unknown> {
-  getMediaStorageConfig(new ConfigService(environment));
-  return environment;
 }

@@ -1,47 +1,78 @@
+import {
+  ClassSerializerInterceptor,
+  Logger,
+  ValidationPipe,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NestFactory, Reflector } from '@nestjs/core';
-import { AppModule } from './app.module';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { MEDIA_STORAGE_CONFIG } from './cores/storage/storage.module';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+
+import { AppModule } from './app.module';
+import { getApplicationConfig } from './configs/application.config';
+import { getCorsOrigins } from './configs/cors.config';
 import type { MediaStorageConfig } from './configs/media-storage.config';
+import { MEDIA_STORAGE_CONFIG } from './cores/storage/storage.module';
 
-async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  const mediaStorageConfig = app.get<MediaStorageConfig>(MEDIA_STORAGE_CONFIG);
+function configureLocalMedia(
+  app: NestExpressApplication,
+  mediaStorageConfig: MediaStorageConfig,
+): void {
+  if (mediaStorageConfig.provider !== 'local') return;
 
-  if (mediaStorageConfig.provider === 'local') {
-    app.useStaticAssets(mediaStorageConfig.localDirectory, {
-      prefix: `${mediaStorageConfig.publicPath}/`,
-      index: false,
-      redirect: false,
-    });
-  }
-  const allowedOrigins = [process.env.FRONTEND_URLS, process.env.CMS_URLS]
-    .filter(Boolean)
-    .flatMap((value) => value!.split(','))
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+  app.useStaticAssets(mediaStorageConfig.localDirectory, {
+    prefix: `${mediaStorageConfig.publicPath}/`,
+    index: false,
+    redirect: false,
+  });
+}
 
+function configureCors(
+  app: NestExpressApplication,
+  config: ConfigService,
+): void {
   app.enableCors({
-    origin: allowedOrigins,
+    origin: getCorsOrigins(config),
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: false,
   });
+}
 
-  const config = new DocumentBuilder()
+function configureSwagger(app: NestExpressApplication): void {
+  const swaggerConfig = new DocumentBuilder()
     .setTitle('CTG BACKEND API')
     .setDescription('API DOCUMENTATION')
     .setVersion('0.0.1')
     .addBearerAuth()
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('api-docs', app, document);
+}
+
+async function bootstrap(): Promise<void> {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const config = app.get(ConfigService);
+  const applicationConfig = getApplicationConfig(config);
+  const mediaStorageConfig = app.get<MediaStorageConfig>(MEDIA_STORAGE_CONFIG);
+
+  configureLocalMedia(app, mediaStorageConfig);
+  configureCors(app, config);
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+  app.enableShutdownHooks();
 
-  SwaggerModule.setup('api-docs', app, document);
-  await app.listen(process.env.PORT ?? 3000);
+  if (applicationConfig.swaggerEnabled) {
+    configureSwagger(app);
+  }
+
+  await app.listen(applicationConfig.port, applicationConfig.host);
+  Logger.log(
+    `CTG backend listening on ${applicationConfig.host}:${applicationConfig.port}`,
+    'Bootstrap',
+  );
 }
+
 void bootstrap();

@@ -9,23 +9,26 @@ import type {
 
 @Injectable()
 export class MinioStorageProvider implements StorageProvider, OnModuleInit {
-  readonly name = 'minio';
+  readonly name: string;
   private readonly client: Client;
   private readonly bucket: string;
 
   constructor(private readonly config: MediaStorageConfig) {
-    if (!config.minio) {
-      throw new Error('MinIO storage configuration is unavailable.');
+    const remoteConfig = config.minio ?? config.s3;
+
+    if (!remoteConfig) {
+      throw new Error('Remote media storage configuration is unavailable.');
     }
 
-    this.bucket = config.minio.bucket;
+    this.name = config.provider;
+    this.bucket = remoteConfig.bucket;
     this.client = new Client({
-      endPoint: config.minio.endpoint,
-      port: config.minio.port,
-      useSSL: config.minio.useSsl,
-      accessKey: config.minio.accessKey,
-      secretKey: config.minio.secretKey,
-      region: config.minio.region,
+      endPoint: config.s3?.endpointHost ?? config.minio?.endpoint ?? '',
+      port: remoteConfig.port,
+      useSSL: remoteConfig.useSsl,
+      accessKey: remoteConfig.accessKey,
+      secretKey: remoteConfig.secretKey,
+      region: remoteConfig.region,
     });
   }
 
@@ -33,7 +36,7 @@ export class MinioStorageProvider implements StorageProvider, OnModuleInit {
     const exists = await this.client.bucketExists(this.bucket);
     if (!exists) {
       throw new Error(
-        `Configured MinIO bucket "${this.bucket}" does not exist. Run the bucket bootstrap before starting the backend.`,
+        `Configured media bucket "${this.bucket}" does not exist or is not accessible.`,
       );
     }
   }

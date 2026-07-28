@@ -18,7 +18,7 @@ import { CustomerLeadsModule } from './modules/customer-leads/customer-leads.mod
 import { SiteSettingsModule } from './modules/site-settings/site-settings.module';
 import { MediaAssetsModule } from './modules/media-assets/media-assets.module';
 import { StorageModule } from './cores/storage/storage.module';
-import { validateEnvironment } from './configs/media-storage.config';
+import { validateEnvironment } from './configs/environment.config';
 import { ContactsModule } from './modules/contacts/contacts.module';
 
 @Module({

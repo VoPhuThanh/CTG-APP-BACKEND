@@ -3,6 +3,7 @@ import type { MediaAsset } from './entities/media-asset.entity';
 import { resolveMediaAssetPublicUrl } from './media-asset-url.resolver';
 
 describe('resolveMediaAssetPublicUrl', () => {
+  const originalNodeEnv = process.env.NODE_ENV;
   const asset = {
     url: null,
     storageProvider: 'minio',
@@ -15,6 +16,7 @@ describe('resolveMediaAssetPublicUrl', () => {
     publicPath: '/uploads/media',
     publicBaseUrl: 'http://localhost:9000/ctg-media',
     cacheControl: 'public, max-age=31536000, immutable',
+    bucket: 'ctg-media',
     minio: {
       endpoint: 'minio',
       port: 9000,
@@ -24,9 +26,18 @@ describe('resolveMediaAssetPublicUrl', () => {
       bucket: 'ctg-media',
       region: 'us-east-1',
     },
+    s3: null,
     maxFileSizeBytes: 1024,
     allowedMimeTypes: new Set(['image/webp']),
   };
+
+  afterEach(() => {
+    if (originalNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
+  });
 
   it('uses the browser-facing base URL and never the Docker hostname', () => {
     const url = resolveMediaAssetPublicUrl(asset, config);
@@ -53,5 +64,21 @@ describe('resolveMediaAssetPublicUrl', () => {
         url: null,
       }),
     );
+  });
+
+  it('refuses to serialize a legacy localhost URL in production', () => {
+    process.env.NODE_ENV = 'production';
+
+    expect(() =>
+      resolveMediaAssetPublicUrl(
+        {
+          url: 'http://localhost:9000/ctg-media/legacy.webp',
+          storageProvider: null,
+          bucket: null,
+          storageKey: null,
+        },
+        config,
+      ),
+    ).toThrow('not safe for production');
   });
 });

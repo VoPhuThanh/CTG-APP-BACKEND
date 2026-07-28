@@ -22,7 +22,7 @@ export const MEDIA_STORAGE_CONFIG = Symbol('MEDIA_STORAGE_CONFIG');
       provide: STORAGE_PROVIDER,
       inject: [MEDIA_STORAGE_CONFIG],
       useFactory: (config: MediaStorageConfig) => {
-        if (config.provider === 'minio') {
+        if (config.provider !== 'local') {
           return new MinioStorageProvider(config);
         }
 

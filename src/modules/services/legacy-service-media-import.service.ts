@@ -380,10 +380,7 @@ export class LegacyServiceMediaImportService {
               name: `Imported service image ${input.checksum.slice(0, 12)}`,
               url: null,
               storageProvider: this.storageProvider.name,
-              bucket:
-                this.storageProvider.name === 'minio'
-                  ? (this.storageConfig.minio?.bucket ?? null)
-                  : null,
+              bucket: this.storageConfig.bucket,
               storageKey: input.storageKey,
               originalFilename: input.originalFilename.slice(0, 255),
               checksum: input.checksum,
