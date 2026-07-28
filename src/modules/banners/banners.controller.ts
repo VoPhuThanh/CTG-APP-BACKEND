@@ -26,6 +26,10 @@ import {
 } from './dtos/banner-query.dto';
 import { BannerCreateDto } from './dtos/create-banner.dto';
 import { BannerUpdateDto } from './dtos/update-banner.dto';
+import {
+  BannerReorderDto,
+  BannerReorderQueryDto,
+} from './dtos/reorder-banners.dto';
 import { BannerPlacement, BannerStatus } from './enums/banner.enum';
 
 @ApiTags('Banners')
@@ -71,6 +75,31 @@ export class BannersController {
   @Get()
   findAll(@Query() query: BannerQueryDto) {
     return this.bannersService.findAll(query);
+  }
+
+  @ApiOperation({
+    summary: 'Find the complete banner ordering collection for a placement',
+  })
+  @Authorized('banners:read')
+  @Get('reorder')
+  findReorderList(@Query() query: BannerReorderQueryDto) {
+    return this.bannersService.findReorderList(query.placement);
+  }
+
+  @ApiOperation({
+    summary: 'Replace the complete banner order for a placement',
+  })
+  @Authorized('banners:update')
+  @Patch('reorder')
+  reorder(
+    @Body() dto: BannerReorderDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.bannersService.reorder(
+      dto.placement,
+      dto.orderedIds,
+      currentUser,
+    );
   }
 
   @ApiOperation({ summary: 'Find banner by id' })

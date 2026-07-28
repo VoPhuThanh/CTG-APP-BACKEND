@@ -2,13 +2,11 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
   IsEnum,
-  IsInt,
   IsOptional,
   IsString,
   IsUUID,
   Matches,
   MaxLength,
-  Min,
 } from 'class-validator';
 import { SiteSettingValueType } from '../enums/site-setting.enum';
 
@@ -74,10 +72,4 @@ export class SiteSettingUpdateDto {
   @IsOptional()
   @IsBoolean()
   isEditable?: boolean;
-
-  @ApiPropertyOptional({ example: 0 })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  displayOrder?: number;
 }

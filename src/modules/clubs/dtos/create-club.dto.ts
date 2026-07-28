@@ -5,13 +5,11 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
-  IsInt,
   IsOptional,
   IsString,
   IsUUID,
   Matches,
   MaxLength,
-  Min,
   ValidateNested,
 } from 'class-validator';
 import { ClubStatus } from '../enums/club.enum';
@@ -130,12 +128,6 @@ export class ClubCreateDto {
   @IsOptional()
   @IsEnum(ClubStatus)
   status?: ClubStatus;
-
-  @ApiPropertyOptional({ example: 0, default: 0 })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  displayOrder?: number;
 
   @ApiPropertyOptional({ example: false, default: false })
   @IsOptional()

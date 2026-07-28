@@ -1,4 +1,8 @@
 import type { MediaStorageConfig } from '@/configs/media-storage.config';
+import {
+  getNextDisplayOrder,
+  OrderingCollections,
+} from '@/cores/ordering/ordering.helper';
 import { MEDIA_STORAGE_CONFIG } from '@/cores/storage/storage.module';
 import {
   STORAGE_PROVIDER,
@@ -363,30 +367,37 @@ export class LegacyServiceMediaImportService {
       }
     }
 
-    const asset = this.mediaAssetRepository.create({
-      name: `Imported service image ${input.checksum.slice(0, 12)}`,
-      url: null,
-      storageProvider: this.storageProvider.name,
-      bucket:
-        this.storageProvider.name === 'minio'
-          ? (this.storageConfig.minio?.bucket ?? null)
-          : null,
-      storageKey: input.storageKey,
-      originalFilename: input.originalFilename.slice(0, 255),
-      checksum: input.checksum,
-      type: MediaAssetType.IMAGE,
-      usage: MediaAssetUsage.GENERAL,
-      mimeType: input.mimeType,
-      width: input.width,
-      height: input.height,
-      fileSizeBytes: input.buffer.length,
-      isActive: true,
-      displayOrder: 0,
-    });
-
     try {
+      const asset = await this.mediaAssetRepository.manager.transaction(
+        async (manager) => {
+          const repository = manager.getRepository(MediaAsset);
+          const displayOrder = await getNextDisplayOrder(
+            manager,
+            OrderingCollections.mediaAssets,
+          );
+          return repository.save(
+            repository.create({
+              name: `Imported service image ${input.checksum.slice(0, 12)}`,
+              url: null,
+              storageProvider: this.storageProvider.name,
+              bucket: this.storageConfig.bucket,
+              storageKey: input.storageKey,
+              originalFilename: input.originalFilename.slice(0, 255),
+              checksum: input.checksum,
+              type: MediaAssetType.IMAGE,
+              usage: MediaAssetUsage.GENERAL,
+              mimeType: input.mimeType,
+              width: input.width,
+              height: input.height,
+              fileSizeBytes: input.buffer.length,
+              isActive: true,
+              displayOrder,
+            }),
+          );
+        },
+      );
       return {
-        asset: await this.mediaAssetRepository.save(asset),
+        asset,
         action: 'create_asset',
       };
     } catch (error) {

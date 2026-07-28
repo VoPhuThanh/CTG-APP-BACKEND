@@ -4,6 +4,7 @@ export enum BannerPlacement {
   SERVICE = 'service',
   MEMBERSHIP = 'membership',
   NEWS = 'news',
+  CONTACT = 'contact',
 }
 
 export enum LegacyBannerPlacement {

@@ -1,13 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsEnum,
-  IsInt,
   IsOptional,
   IsString,
   MaxLength,
-  Min,
 } from 'class-validator';
 import { MediaAssetUsage } from '../enums/media-asset.enum';
 
@@ -58,11 +56,4 @@ export class MediaAssetUploadDto {
   @Transform(parseMultipartBoolean)
   @IsBoolean()
   isActive?: boolean;
-
-  @ApiPropertyOptional({ example: 0, default: 0 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  displayOrder?: number;
 }

@@ -7,7 +7,7 @@ export class LoginDto {
   @IsNotEmpty()
   username!: string;
 
-  @ApiProperty({ example: 'PhuThanh2004' })
+  @ApiProperty({ example: 'change-me' })
   @IsString()
   @IsNotEmpty()
   password!: string;

@@ -7,15 +7,16 @@ files are written through the shared storage-provider boundary under
 `src/cores/storage/`; media application logic does not depend on a filesystem,
 S3 API, or vendor SDK.
 
-The implemented providers are `local` and `minio`. Local storage remains useful
-for single-instance development. MinIO is the managed S3-compatible provider
-for shared, domain-portable storage.
+The implemented providers are `local`, `minio`, and `s3`. Local storage remains
+useful for single-instance development. MinIO preserves the local Compose
+workflow. The generic S3-compatible mode is required in production and supports
+Cloudflare R2.
 
 ## Configuration
 
 | Variable                           | Default                                     | Meaning                                                                    |
 | ---------------------------------- | ------------------------------------------- | -------------------------------------------------------------------------- |
-| `MEDIA_STORAGE_PROVIDER`           | `local`                                     | Registered provider name: `local` or `minio`.                              |
+| `MEDIA_STORAGE_PROVIDER`           | `local`                                     | Registered provider name: `local`, `minio`, or `s3`.                       |
 | `MEDIA_UPLOAD_DIRECTORY`           | `uploads/media`                             | Writable local root. Relative values resolve from the process directory.   |
 | `MEDIA_PUBLIC_PATH`                | `/uploads/media`                            | Public API route used to serve local objects.                              |
 | `MEDIA_PUBLIC_BASE_URL`            | empty                                       | Browser-facing base. Required for MinIO; never use a Docker-only hostname. |
@@ -27,6 +28,14 @@ MinIO additionally requires `MINIO_ENDPOINT`, `MINIO_PORT`, `MINIO_USE_SSL`,
 `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET`, and `MINIO_REGION`.
 `MINIO_ENDPOINT` is private backend connectivity. `MEDIA_PUBLIC_BASE_URL` is
 the browser/CDN/reverse-proxy base and may be a completely different hostname.
+
+S3-compatible production storage requires `MEDIA_STORAGE_ENDPOINT`,
+`MEDIA_STORAGE_REGION`, `MEDIA_STORAGE_BUCKET`,
+`MEDIA_STORAGE_ACCESS_KEY_ID`, `MEDIA_STORAGE_SECRET_ACCESS_KEY`, and
+`MEDIA_STORAGE_FORCE_PATH_STYLE=true`. The endpoint is private backend
+connectivity; `MEDIA_PUBLIC_BASE_URL` is still the browser-facing bucket or
+custom-domain root. See `docs/deployment.md` for the full production matrix and
+MinIO-to-R2 migration sequence.
 
 Configuration is validated during application bootstrap. Unsupported
 providers, missing MinIO settings, SVG, empty allowlists, unsafe public paths,

@@ -16,6 +16,10 @@ import { ServiceVariant } from './service-variant.entity';
 import { ServiceStatus } from '../enums/service.enum';
 
 @Entity('services')
+@Index('UQ_services_active_display_order', ['displayOrder'], {
+  unique: true,
+  where: '"deletedAt" IS NULL',
+})
 export class Service extends BaseEntityCore {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

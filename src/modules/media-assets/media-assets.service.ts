@@ -8,6 +8,12 @@ import {
   getPaginationTake,
 } from '@/cores/pagination/pagination-utils';
 import {
+  compactCollection,
+  getNextDisplayOrder,
+  OrderingCollections,
+  reorderCollection,
+} from '@/cores/ordering/ordering.helper';
+import {
   SUPPORTED_IMAGE_MIME_TYPES,
   type MediaStorageConfig,
   type SupportedImageMimeType,
@@ -206,6 +212,39 @@ export class MediaAssetsService {
     return mapMediaAssetToResponse(asset);
   }
 
+  async findReorderList(): Promise<MediaAssetResponseDto[]> {
+    const assets = await this.mediaAssetRepository.find({
+      relations: {
+        createdBy: true,
+        updatedBy: true,
+      },
+      order: {
+        displayOrder: 'ASC',
+        createdAt: 'ASC',
+        id: 'ASC',
+      },
+    });
+
+    return mapMediaAssetsToResponses(assets);
+  }
+
+  async reorder(
+    orderedIds: string[],
+    currentUser: AuthenticatedUser,
+  ): Promise<MediaAssetResponseDto[]> {
+    const updater = await this.findCurrentUserOrThrow(currentUser);
+    await this.mediaAssetRepository.manager.transaction(async (manager) => {
+      await reorderCollection(
+        manager,
+        OrderingCollections.mediaAssets,
+        orderedIds,
+        updater.id,
+      );
+    });
+
+    return this.findReorderList();
+  }
+
   getUsage(id: string): Promise<MediaAssetUsageReportResponseDto> {
     return this.mediaAssetReferencesService.getUsageReport(id);
   }
@@ -216,33 +255,40 @@ export class MediaAssetsService {
   ): Promise<MediaAssetResponseDto> {
     const creator = await this.findCurrentUserOrThrow(currentUser);
 
-    const asset = this.mediaAssetRepository.create({
-      name: dto.name,
-      altTextEn: dto.altTextEn,
-      altTextVi: dto.altTextVi,
-      descriptionEn: dto.descriptionEn,
-      descriptionVi: dto.descriptionVi,
-      url: dto.url,
-      storageProvider: null,
-      bucket: null,
-      storageKey: null,
-      originalFilename: null,
-      checksum: null,
-      type: dto.type ?? MediaAssetType.IMAGE,
-      usage: dto.usage ?? MediaAssetUsage.GENERAL,
-      mimeType: dto.mimeType,
-      width: dto.width,
-      height: dto.height,
-      fileSizeBytes: dto.fileSizeBytes,
-      isActive: dto.isActive ?? true,
-      displayOrder: dto.displayOrder ?? 0,
-      createdBy: creator,
-      updatedBy: creator,
+    let createdAssetId = '';
+    await this.mediaAssetRepository.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(MediaAsset);
+      const displayOrder = await getNextDisplayOrder(
+        manager,
+        OrderingCollections.mediaAssets,
+      );
+      const asset = repository.create({
+        name: dto.name,
+        altTextEn: dto.altTextEn,
+        altTextVi: dto.altTextVi,
+        descriptionEn: dto.descriptionEn,
+        descriptionVi: dto.descriptionVi,
+        url: dto.url,
+        storageProvider: null,
+        bucket: null,
+        storageKey: null,
+        originalFilename: null,
+        checksum: null,
+        type: dto.type ?? MediaAssetType.IMAGE,
+        usage: dto.usage ?? MediaAssetUsage.GENERAL,
+        mimeType: dto.mimeType,
+        width: dto.width,
+        height: dto.height,
+        fileSizeBytes: dto.fileSizeBytes,
+        isActive: dto.isActive ?? true,
+        displayOrder,
+        createdBy: creator,
+        updatedBy: creator,
+      });
+      createdAssetId = (await repository.save(asset)).id;
     });
 
-    await this.mediaAssetRepository.save(asset);
-
-    return this.findOne(asset.id);
+    return this.findOne(createdAssetId);
   }
 
   async uploadImage(
@@ -313,30 +359,39 @@ export class MediaAssetsService {
 
     let savedAsset: MediaAsset;
     try {
-      const asset = this.mediaAssetRepository.create({
-        name: dto.name,
-        altTextEn: dto.altTextEn,
-        altTextVi: dto.altTextVi,
-        descriptionEn: dto.descriptionEn,
-        descriptionVi: dto.descriptionVi,
-        url: null,
-        storageProvider: storedObject.provider,
-        bucket: storedObject.bucket,
-        storageKey: storedObject.key,
-        originalFilename,
-        checksum,
-        type: MediaAssetType.IMAGE,
-        usage: dto.usage ?? MediaAssetUsage.GENERAL,
-        mimeType: imageMetadata.mimeType,
-        width: imageMetadata.width,
-        height: imageMetadata.height,
-        fileSizeBytes: file.buffer.length,
-        isActive: dto.isActive ?? true,
-        displayOrder: dto.displayOrder ?? 0,
-        createdBy: creator,
-        updatedBy: creator,
-      });
-      savedAsset = await this.mediaAssetRepository.save(asset);
+      savedAsset = await this.mediaAssetRepository.manager.transaction(
+        async (manager) => {
+          const repository = manager.getRepository(MediaAsset);
+          const displayOrder = await getNextDisplayOrder(
+            manager,
+            OrderingCollections.mediaAssets,
+          );
+          const asset = repository.create({
+            name: dto.name,
+            altTextEn: dto.altTextEn,
+            altTextVi: dto.altTextVi,
+            descriptionEn: dto.descriptionEn,
+            descriptionVi: dto.descriptionVi,
+            url: null,
+            storageProvider: storedObject.provider,
+            bucket: storedObject.bucket,
+            storageKey: storedObject.key,
+            originalFilename,
+            checksum,
+            type: MediaAssetType.IMAGE,
+            usage: dto.usage ?? MediaAssetUsage.GENERAL,
+            mimeType: imageMetadata.mimeType,
+            width: imageMetadata.width,
+            height: imageMetadata.height,
+            fileSizeBytes: file.buffer.length,
+            isActive: dto.isActive ?? true,
+            displayOrder,
+            createdBy: creator,
+            updatedBy: creator,
+          });
+          return repository.save(asset);
+        },
+      );
     } catch (error) {
       await this.compensateStorageDelete(storedObject.key);
       throw error;
@@ -420,32 +475,40 @@ export class MediaAssetsService {
     }
 
     try {
-      const asset = this.mediaAssetRepository.create({
-        name: input.name.slice(0, 150),
-        url: null,
-        storageProvider: this.storageProvider.name,
-        bucket:
-          this.storageProvider.name === 'minio'
-            ? (this.storageConfig.minio?.bucket ?? null)
-            : null,
-        storageKey,
-        originalFilename: this.sanitizeOriginalFilename(
-          input.originalFilename,
-          imageMetadata.extension,
-        ),
-        checksum,
-        type: MediaAssetType.IMAGE,
-        usage: input.usage ?? MediaAssetUsage.GENERAL,
-        mimeType: imageMetadata.mimeType,
-        width: imageMetadata.width,
-        height: imageMetadata.height,
-        fileSizeBytes: input.buffer.length,
-        isActive: true,
-        displayOrder: 0,
-      });
+      const asset = await this.mediaAssetRepository.manager.transaction(
+        async (manager) => {
+          const repository = manager.getRepository(MediaAsset);
+          const displayOrder = await getNextDisplayOrder(
+            manager,
+            OrderingCollections.mediaAssets,
+          );
+          return repository.save(
+            repository.create({
+              name: input.name.slice(0, 150),
+              url: null,
+              storageProvider: this.storageProvider.name,
+              bucket: this.storageConfig.bucket,
+              storageKey,
+              originalFilename: this.sanitizeOriginalFilename(
+                input.originalFilename,
+                imageMetadata.extension,
+              ),
+              checksum,
+              type: MediaAssetType.IMAGE,
+              usage: input.usage ?? MediaAssetUsage.GENERAL,
+              mimeType: imageMetadata.mimeType,
+              width: imageMetadata.width,
+              height: imageMetadata.height,
+              fileSizeBytes: input.buffer.length,
+              isActive: true,
+              displayOrder,
+            }),
+          );
+        },
+      );
 
       return {
-        asset: await this.mediaAssetRepository.save(asset),
+        asset,
         action: 'create_asset',
         checksum,
         storageKey,
@@ -508,9 +571,6 @@ export class MediaAssetsService {
       asset.fileSizeBytes = dto.fileSizeBytes;
     }
     if (dto.isActive !== undefined) asset.isActive = dto.isActive;
-    if (dto.displayOrder !== undefined) {
-      asset.displayOrder = dto.displayOrder;
-    }
 
     asset.updatedBy = updater;
 
@@ -550,6 +610,11 @@ export class MediaAssetsService {
       });
 
       await manager.softDelete(MediaAsset, asset.id);
+      await compactCollection(
+        manager,
+        OrderingCollections.mediaAssets,
+        deleter.id,
+      );
     });
   }
 

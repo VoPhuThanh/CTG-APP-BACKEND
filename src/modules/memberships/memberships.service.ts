@@ -14,6 +14,12 @@ import {
   getPaginationTake,
   orderEntitiesByIds,
 } from '@/cores/pagination/pagination-utils';
+import {
+  compactCollection,
+  getNextDisplayOrder,
+  OrderingCollections,
+  reorderCollection,
+} from '@/cores/ordering/ordering.helper';
 import { generateSlug } from '@/cores/utils/slug.util';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -158,6 +164,57 @@ export class MembershipsService {
     return mapMembershipLevelToResponse(level);
   }
 
+  async findLevelReorderList(): Promise<MembershipLevelResponseDto[]> {
+    const levels = await this.levelRepository.find({
+      relations: {
+        imageAsset: true,
+        plans: {
+          level: true,
+          createdBy: true,
+          updatedBy: true,
+        },
+        benefits: {
+          createdBy: true,
+          updatedBy: true,
+        },
+        createdBy: true,
+        updatedBy: true,
+      },
+      order: {
+        displayOrder: 'ASC',
+        createdAt: 'ASC',
+        id: 'ASC',
+        plans: {
+          displayOrder: 'ASC',
+          durationMonths: 'ASC',
+        },
+        benefits: {
+          displayOrder: 'ASC',
+          nameEn: 'ASC',
+        },
+      },
+    });
+
+    return mapMembershipLevelsToResponses(levels);
+  }
+
+  async reorderLevels(
+    orderedIds: string[],
+    currentUser: AuthenticatedUser,
+  ): Promise<MembershipLevelResponseDto[]> {
+    const updater = await this.findCurrentUserOrThrow(currentUser);
+    await this.levelRepository.manager.transaction(async (manager) => {
+      await reorderCollection(
+        manager,
+        OrderingCollections.membershipLevels,
+        orderedIds,
+        updater.id,
+      );
+    });
+
+    return this.findLevelReorderList();
+  }
+
   async createLevel(
     dto: MembershipLevelCreateDto,
     currentUser: AuthenticatedUser,
@@ -176,6 +233,10 @@ export class MembershipsService {
         manager,
       );
       const repository = manager.getRepository(MembershipLevel);
+      const displayOrder = await getNextDisplayOrder(
+        manager,
+        OrderingCollections.membershipLevels,
+      );
       const level = repository.create({
         nameEn: dto.nameEn,
         nameVi: dto.nameVi,
@@ -188,7 +249,7 @@ export class MembershipsService {
         imageAsset,
         isFeatured: dto.isFeatured ?? false,
         status: dto.status ?? MembershipStatus.DRAFT,
-        displayOrder: dto.displayOrder ?? 0,
+        displayOrder,
         benefits,
         createdBy: creator,
         updatedBy: creator,
@@ -228,7 +289,6 @@ export class MembershipsService {
     if (dto.imageUrl !== undefined) level.imageUrl = dto.imageUrl;
     if (dto.isFeatured !== undefined) level.isFeatured = dto.isFeatured;
     if (dto.status !== undefined) level.status = dto.status;
-    if (dto.displayOrder !== undefined) level.displayOrder = dto.displayOrder;
 
     if (dto.benefitIds !== undefined) {
       level.benefits = await this.findBenefitsByIdsOrThrow(dto.benefitIds);
@@ -275,6 +335,11 @@ export class MembershipsService {
       });
 
       await manager.softDelete(MembershipLevel, level.id);
+      await compactCollection(
+        manager,
+        OrderingCollections.membershipLevels,
+        deleter.id,
+      );
     });
   }
 
@@ -336,26 +401,66 @@ export class MembershipsService {
     return mapMembershipBenefitToResponse(benefit);
   }
 
+  async findBenefitReorderList(): Promise<MembershipBenefitResponseDto[]> {
+    const benefits = await this.benefitRepository.find({
+      relations: {
+        createdBy: true,
+        updatedBy: true,
+      },
+      order: {
+        displayOrder: 'ASC',
+        createdAt: 'ASC',
+        id: 'ASC',
+      },
+    });
+
+    return mapMembershipBenefitsToResponses(benefits);
+  }
+
+  async reorderBenefits(
+    orderedIds: string[],
+    currentUser: AuthenticatedUser,
+  ): Promise<MembershipBenefitResponseDto[]> {
+    const updater = await this.findCurrentUserOrThrow(currentUser);
+    await this.benefitRepository.manager.transaction(async (manager) => {
+      await reorderCollection(
+        manager,
+        OrderingCollections.membershipBenefits,
+        orderedIds,
+        updater.id,
+      );
+    });
+
+    return this.findBenefitReorderList();
+  }
+
   async createBenefit(
     dto: MembershipBenefitCreateDto,
     currentUser: AuthenticatedUser,
   ): Promise<MembershipBenefitResponseDto> {
     const creator = await this.findCurrentUserOrThrow(currentUser);
 
-    const benefit = this.benefitRepository.create({
-      nameEn: dto.nameEn,
-      nameVi: dto.nameVi,
-      descriptionEn: dto.descriptionEn,
-      descriptionVi: dto.descriptionVi,
-      isActive: dto.isActive ?? true,
-      displayOrder: dto.displayOrder ?? 0,
-      createdBy: creator,
-      updatedBy: creator,
+    let createdBenefitId = '';
+    await this.benefitRepository.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(MembershipBenefit);
+      const displayOrder = await getNextDisplayOrder(
+        manager,
+        OrderingCollections.membershipBenefits,
+      );
+      const benefit = repository.create({
+        nameEn: dto.nameEn,
+        nameVi: dto.nameVi,
+        descriptionEn: dto.descriptionEn,
+        descriptionVi: dto.descriptionVi,
+        isActive: dto.isActive ?? true,
+        displayOrder,
+        createdBy: creator,
+        updatedBy: creator,
+      });
+      createdBenefitId = (await repository.save(benefit)).id;
     });
 
-    await this.benefitRepository.save(benefit);
-
-    return this.findBenefit(benefit.id);
+    return this.findBenefit(createdBenefitId);
   }
 
   async updateBenefit(
@@ -375,7 +480,6 @@ export class MembershipsService {
       benefit.descriptionVi = dto.descriptionVi;
     }
     if (dto.isActive !== undefined) benefit.isActive = dto.isActive;
-    if (dto.displayOrder !== undefined) benefit.displayOrder = dto.displayOrder;
 
     benefit.updatedBy = updater;
 
@@ -397,6 +501,11 @@ export class MembershipsService {
       });
 
       await manager.softDelete(MembershipBenefit, benefit.id);
+      await compactCollection(
+        manager,
+        OrderingCollections.membershipBenefits,
+        deleter.id,
+      );
     });
   }
 
@@ -468,6 +577,46 @@ export class MembershipsService {
     return mapMembershipPlanToResponse(plan);
   }
 
+  async findPlanReorderList(
+    levelId: string,
+  ): Promise<MembershipPlanResponseDto[]> {
+    await this.ensureLevelExists(levelId);
+    const plans = await this.planRepository.find({
+      where: { level: { id: levelId } },
+      relations: {
+        level: true,
+        createdBy: true,
+        updatedBy: true,
+      },
+      order: {
+        displayOrder: 'ASC',
+        createdAt: 'ASC',
+        id: 'ASC',
+      },
+    });
+
+    return mapMembershipPlansToResponses(plans, levelId);
+  }
+
+  async reorderPlans(
+    levelId: string,
+    orderedIds: string[],
+    currentUser: AuthenticatedUser,
+  ): Promise<MembershipPlanResponseDto[]> {
+    const updater = await this.findCurrentUserOrThrow(currentUser);
+    await this.ensureLevelExists(levelId);
+    await this.planRepository.manager.transaction(async (manager) => {
+      await reorderCollection(
+        manager,
+        OrderingCollections.membershipPlans(levelId),
+        orderedIds,
+        updater.id,
+      );
+    });
+
+    return this.findPlanReorderList(levelId);
+  }
+
   async createPlan(
     levelId: string,
     dto: MembershipPlanCreateDto,
@@ -478,23 +627,30 @@ export class MembershipsService {
 
     await this.ensurePlanDurationIsAvailable(levelId, dto.durationMonths);
 
-    const plan = this.planRepository.create({
-      level,
-      durationMonths: dto.durationMonths,
-      totalPrice: dto.totalPrice,
-      currency: dto.currency ?? 'VND',
-      labelEn: dto.labelEn,
-      labelVi: dto.labelVi,
-      isFeatured: dto.isFeatured ?? false,
-      status: dto.status ?? MembershipStatus.DRAFT,
-      displayOrder: dto.displayOrder ?? 0,
-      createdBy: creator,
-      updatedBy: creator,
+    let createdPlanId = '';
+    await this.planRepository.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(MembershipPlan);
+      const displayOrder = await getNextDisplayOrder(
+        manager,
+        OrderingCollections.membershipPlans(levelId),
+      );
+      const plan = repository.create({
+        level,
+        durationMonths: dto.durationMonths,
+        totalPrice: dto.totalPrice,
+        currency: dto.currency ?? 'VND',
+        labelEn: dto.labelEn,
+        labelVi: dto.labelVi,
+        isFeatured: dto.isFeatured ?? false,
+        status: dto.status ?? MembershipStatus.DRAFT,
+        displayOrder,
+        createdBy: creator,
+        updatedBy: creator,
+      });
+      createdPlanId = (await repository.save(plan)).id;
     });
 
-    await this.planRepository.save(plan);
-
-    return this.findPlan(levelId, plan.id);
+    return this.findPlan(levelId, createdPlanId);
   }
 
   async updatePlan(
@@ -520,7 +676,6 @@ export class MembershipsService {
     if (dto.labelVi !== undefined) plan.labelVi = dto.labelVi;
     if (dto.isFeatured !== undefined) plan.isFeatured = dto.isFeatured;
     if (dto.status !== undefined) plan.status = dto.status;
-    if (dto.displayOrder !== undefined) plan.displayOrder = dto.displayOrder;
 
     plan.updatedBy = updater;
 
@@ -543,6 +698,11 @@ export class MembershipsService {
       });
 
       await manager.softDelete(MembershipPlan, plan.id);
+      await compactCollection(
+        manager,
+        OrderingCollections.membershipPlans(levelId),
+        deleter.id,
+      );
     });
   }
 

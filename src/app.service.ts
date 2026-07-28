@@ -1,27 +1,38 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+
+const SERVICE_NAME = 'ctg-app-backend';
 
 @Injectable()
 export class AppService {
   constructor(private readonly dataSource: DataSource) {}
 
-  async getHealth() {
+  getLiveness() {
+    return {
+      status: 'ok',
+      service: SERVICE_NAME,
+    };
+  }
+
+  async getReadiness() {
     try {
       await this.dataSource.query('SELECT 1');
 
       return {
         status: 'ok',
-        service: 'ctg-app-backend',
+        service: SERVICE_NAME,
         database: 'connected',
-        timestamp: new Date().toISOString(),
       };
     } catch {
-      return {
-        status: 'degraded',
-        service: 'ctg-app-backend',
-        database: 'disconnected',
-        timestamp: new Date().toISOString(),
-      };
+      throw new ServiceUnavailableException({
+        status: 'unavailable',
+        service: SERVICE_NAME,
+        database: 'unavailable',
+      });
     }
+  }
+
+  getHealth() {
+    return this.getReadiness();
   }
 }

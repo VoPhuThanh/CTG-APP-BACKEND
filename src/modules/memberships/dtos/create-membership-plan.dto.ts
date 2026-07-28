@@ -55,10 +55,4 @@ export class MembershipPlanCreateDto {
   @IsOptional()
   @IsEnum(MembershipStatus)
   status?: MembershipStatus;
-
-  @ApiPropertyOptional({ example: 0, default: 0 })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  displayOrder?: number;
 }

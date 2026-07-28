@@ -12,6 +12,7 @@ describe('banner placement contract', () => {
       'service',
       'membership',
       'news',
+      'contact',
     ]);
   });
 

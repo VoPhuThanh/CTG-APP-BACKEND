@@ -8,6 +8,12 @@ import {
   getPaginatedIds,
   orderEntitiesByIds,
 } from '@/cores/pagination/pagination-utils';
+import {
+  compactCollection,
+  getNextDisplayOrder,
+  OrderingCollections,
+  reorderCollection,
+} from '@/cores/ordering/ordering.helper';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type EntityManager, type Repository } from 'typeorm';
@@ -139,6 +145,48 @@ export class ClubsService {
     return mapClubToResponse(club);
   }
 
+  async findReorderList(): Promise<ClubResponseDto[]> {
+    const clubs = await this.clubRepository.find({
+      relations: {
+        coverImageAsset: true,
+        galleryMedia: { mediaAsset: true },
+        facilities: true,
+        services: true,
+        createdBy: true,
+        updatedBy: true,
+      },
+      order: {
+        displayOrder: 'ASC',
+        createdAt: 'ASC',
+        id: 'ASC',
+        galleryMedia: {
+          displayOrder: 'ASC',
+          id: 'ASC',
+        },
+      },
+    });
+
+    return mapClubsToResponses(clubs);
+  }
+
+  async reorder(
+    orderedIds: string[],
+    currentUser: AuthenticatedUser,
+  ): Promise<ClubResponseDto[]> {
+    const updater = await this.findCurrentUserOrThrow(currentUser);
+
+    await this.clubRepository.manager.transaction(async (manager) => {
+      await reorderCollection(
+        manager,
+        OrderingCollections.clubs,
+        orderedIds,
+        updater.id,
+      );
+    });
+
+    return this.findReorderList();
+  }
+
   async create(
     dto: ClubCreateDto,
     currentUser: AuthenticatedUser,
@@ -165,6 +213,10 @@ export class ClubsService {
         this.validateGalleryMedia(dto.galleryMedia ?? [], manager),
       ]);
       const repository = manager.getRepository(Club);
+      const displayOrder = await getNextDisplayOrder(
+        manager,
+        OrderingCollections.clubs,
+      );
       const club = repository.create({
         nameEn: dto.nameEn,
         nameVi: dto.nameVi,
@@ -182,7 +234,7 @@ export class ClubsService {
         coverImageAsset,
         galleryImageUrls: dto.galleryImageUrls ?? [],
         status: dto.status ?? ClubStatus.DRAFT,
-        displayOrder: dto.displayOrder ?? 0,
+        displayOrder,
         isFeatured: dto.isFeatured ?? false,
         facilities,
         services,
@@ -253,7 +305,6 @@ export class ClubsService {
     }
 
     if (dto.status !== undefined) club.status = dto.status;
-    if (dto.displayOrder !== undefined) club.displayOrder = dto.displayOrder;
     if (dto.isFeatured !== undefined) club.isFeatured = dto.isFeatured;
 
     if (dto.facilityIds !== undefined) {
@@ -298,6 +349,7 @@ export class ClubsService {
       });
 
       await manager.softDelete(Club, club.id);
+      await compactCollection(manager, OrderingCollections.clubs, deleter.id);
     });
   }
 

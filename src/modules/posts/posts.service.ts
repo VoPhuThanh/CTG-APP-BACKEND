@@ -10,6 +10,13 @@ import {
   getPaginationSkip,
   getPaginationTake,
 } from '@/cores/pagination/pagination-utils';
+import {
+  compactCollection,
+  getNextDisplayOrder,
+  lockOrderingCollections,
+  OrderingCollections,
+  reorderCollection,
+} from '@/cores/ordering/ordering.helper';
 import { generateSlug } from '@/cores/utils/slug.util';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -238,6 +245,39 @@ export class PostsService {
     return mapPostCategoryToResponse(category);
   }
 
+  async findCategoryReorderList(): Promise<PostCategoryResponseDto[]> {
+    const categories = await this.postCategoryRepository.find({
+      relations: {
+        createdBy: true,
+        updatedBy: true,
+      },
+      order: {
+        displayOrder: 'ASC',
+        createdAt: 'ASC',
+        id: 'ASC',
+      },
+    });
+
+    return mapPostCategoriesToResponses(categories);
+  }
+
+  async reorderCategories(
+    orderedIds: string[],
+    currentUser: AuthenticatedUser,
+  ): Promise<PostCategoryResponseDto[]> {
+    const updater = await this.findCurrentUserOrThrow(currentUser);
+    await this.postCategoryRepository.manager.transaction(async (manager) => {
+      await reorderCollection(
+        manager,
+        OrderingCollections.postCategories,
+        orderedIds,
+        updater.id,
+      );
+    });
+
+    return this.findCategoryReorderList();
+  }
+
   async createCategory(
     dto: PostCategoryCreateDto,
     currentUser: AuthenticatedUser,
@@ -247,21 +287,28 @@ export class PostsService {
 
     await this.ensureCategorySlugIsAvailable(slug);
 
-    const category = this.postCategoryRepository.create({
-      nameEn: dto.nameEn,
-      nameVi: dto.nameVi,
-      slug,
-      descriptionEn: dto.descriptionEn,
-      descriptionVi: dto.descriptionVi,
-      isActive: dto.isActive ?? true,
-      displayOrder: dto.displayOrder ?? 0,
-      createdBy: creator,
-      updatedBy: creator,
+    let createdCategoryId = '';
+    await this.postCategoryRepository.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(PostCategory);
+      const displayOrder = await getNextDisplayOrder(
+        manager,
+        OrderingCollections.postCategories,
+      );
+      const category = repository.create({
+        nameEn: dto.nameEn,
+        nameVi: dto.nameVi,
+        slug,
+        descriptionEn: dto.descriptionEn,
+        descriptionVi: dto.descriptionVi,
+        isActive: dto.isActive ?? true,
+        displayOrder,
+        createdBy: creator,
+        updatedBy: creator,
+      });
+      createdCategoryId = (await repository.save(category)).id;
     });
 
-    await this.postCategoryRepository.save(category);
-
-    return this.findCategory(category.id);
+    return this.findCategory(createdCategoryId);
   }
 
   async updateCategory(
@@ -286,9 +333,6 @@ export class PostsService {
       category.descriptionVi = dto.descriptionVi;
     }
     if (dto.isActive !== undefined) category.isActive = dto.isActive;
-    if (dto.displayOrder !== undefined) {
-      category.displayOrder = dto.displayOrder;
-    }
 
     category.updatedBy = updater;
 
@@ -322,6 +366,11 @@ export class PostsService {
       });
 
       await manager.softDelete(PostCategory, category.id);
+      await compactCollection(
+        manager,
+        OrderingCollections.postCategories,
+        deleter.id,
+      );
     });
   }
 
@@ -396,6 +445,47 @@ export class PostsService {
     return mapPostToResponse(this.sanitizePostContentForOutput(post));
   }
 
+  async findPostReorderList(
+    categoryId: string,
+  ): Promise<PostListItemResponseDto[]> {
+    await this.findCategoryEntityById(categoryId);
+    const posts = await this.postRepository.find({
+      where: { category: { id: categoryId } },
+      relations: {
+        category: true,
+        coverImageAsset: true,
+        createdBy: true,
+        updatedBy: true,
+      },
+      order: {
+        displayOrder: 'ASC',
+        createdAt: 'ASC',
+        id: 'ASC',
+      },
+    });
+
+    return mapPostsToListItemResponses(posts);
+  }
+
+  async reorderPosts(
+    categoryId: string,
+    orderedIds: string[],
+    currentUser: AuthenticatedUser,
+  ): Promise<PostListItemResponseDto[]> {
+    const updater = await this.findCurrentUserOrThrow(currentUser);
+    await this.findCategoryEntityById(categoryId);
+    await this.postRepository.manager.transaction(async (manager) => {
+      await reorderCollection(
+        manager,
+        OrderingCollections.posts(categoryId),
+        orderedIds,
+        updater.id,
+      );
+    });
+
+    return this.findPostReorderList(categoryId);
+  }
+
   async createPost(
     dto: PostCreateDto,
     currentUser: AuthenticatedUser,
@@ -420,6 +510,10 @@ export class PostsService {
         manager,
       );
       const postRepository = manager.getRepository(Post);
+      const displayOrder = await getNextDisplayOrder(
+        manager,
+        OrderingCollections.posts(category.id),
+      );
       const post = postRepository.create({
         titleEn: dto.titleEn,
         titleVi: dto.titleVi,
@@ -436,7 +530,7 @@ export class PostsService {
         publishedAt: this.toOptionalDate(dto.publishedAt),
         status: dto.status ?? PostStatus.DRAFT,
         isFeatured: dto.isFeatured ?? false,
-        displayOrder: dto.displayOrder ?? 0,
+        displayOrder,
         createdBy: creator,
         updatedBy: creator,
       });
@@ -467,6 +561,7 @@ export class PostsService {
   ): Promise<PostResponseDto> {
     const updater = await this.findCurrentUserOrThrow(currentUser);
     const post = await this.findPostEntityById(id);
+    const previousCategoryId = post.category.id;
     const contentHtmlEn = this.sanitizeUpdatedPostContent(dto.contentHtmlEn);
     const contentHtmlVi = this.sanitizeUpdatedPostContent(dto.contentHtmlVi);
 
@@ -503,11 +598,22 @@ export class PostsService {
     }
     if (dto.status !== undefined) post.status = dto.status;
     if (dto.isFeatured !== undefined) post.isFeatured = dto.isFeatured;
-    if (dto.displayOrder !== undefined) post.displayOrder = dto.displayOrder;
 
     post.updatedBy = updater;
 
     await this.postRepository.manager.transaction(async (manager) => {
+      const categoryChanged = previousCategoryId !== post.category.id;
+      if (categoryChanged) {
+        await lockOrderingCollections(manager, [
+          OrderingCollections.posts(previousCategoryId),
+          OrderingCollections.posts(post.category.id),
+        ]);
+        post.displayOrder = await getNextDisplayOrder(
+          manager,
+          OrderingCollections.posts(post.category.id),
+        );
+      }
+
       if (dto.coverImageAssetId !== undefined) {
         post.coverImageAsset = await this.findImageAssetByIdOrThrow(
           dto.coverImageAssetId,
@@ -517,6 +623,13 @@ export class PostsService {
       }
 
       await manager.getRepository(Post).save(post);
+      if (categoryChanged) {
+        await compactCollection(
+          manager,
+          OrderingCollections.posts(previousCategoryId),
+          updater.id,
+        );
+      }
       if (contentHtmlEn) {
         await this.postInlineMediaService.synchronizeLocale(
           manager,
@@ -548,6 +661,11 @@ export class PostsService {
       });
 
       await manager.softDelete(Post, post.id);
+      await compactCollection(
+        manager,
+        OrderingCollections.posts(post.category.id),
+        deleter.id,
+      );
     });
   }
 

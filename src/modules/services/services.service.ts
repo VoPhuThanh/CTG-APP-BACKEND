@@ -13,6 +13,12 @@ import {
   getPaginationTake,
   orderEntitiesByIds,
 } from '@/cores/pagination/pagination-utils';
+import {
+  compactCollection,
+  getNextDisplayOrder,
+  OrderingCollections,
+  reorderCollection,
+} from '@/cores/ordering/ordering.helper';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type EntityManager, type Repository } from 'typeorm';
@@ -152,6 +158,56 @@ export class ServicesService {
     return mapServiceToResponse(service);
   }
 
+  async findReorderList(): Promise<ServiceResponseDto[]> {
+    const services = await this.serviceRepository.find({
+      relations: {
+        variants: {
+          createdBy: true,
+          updatedBy: true,
+          service: true,
+          clubs: true,
+          imageAsset: true,
+          bannerImageAsset: true,
+          modelImageAsset: true,
+        },
+        imageAsset: true,
+        clubs: true,
+        createdBy: true,
+        updatedBy: true,
+      },
+      order: {
+        displayOrder: 'ASC',
+        createdAt: 'ASC',
+        id: 'ASC',
+        variants: {
+          displayOrder: 'ASC',
+          createdAt: 'ASC',
+          id: 'ASC',
+        },
+      },
+    });
+
+    return mapServicesToResponses(services);
+  }
+
+  async reorder(
+    orderedIds: string[],
+    currentUser: AuthenticatedUser,
+  ): Promise<ServiceResponseDto[]> {
+    const updater = await this.findCurrentUserOrThrow(currentUser);
+
+    await this.serviceRepository.manager.transaction(async (manager) => {
+      await reorderCollection(
+        manager,
+        OrderingCollections.services,
+        orderedIds,
+        updater.id,
+      );
+    });
+
+    return this.findReorderList();
+  }
+
   async create(
     dto: ServiceCreateDto,
     currentUser: AuthenticatedUser,
@@ -171,6 +227,10 @@ export class ServicesService {
         manager,
       );
       const serviceRepository = manager.getRepository(Service);
+      const displayOrder = await getNextDisplayOrder(
+        manager,
+        OrderingCollections.services,
+      );
       const service = serviceRepository.create({
         nameEn: dto.nameEn,
         nameVi: dto.nameVi,
@@ -182,7 +242,7 @@ export class ServicesService {
         imageUrl: dto.imageUrl,
         imageAsset,
         status: dto.status ?? ServiceStatus.DRAFT,
-        displayOrder: dto.displayOrder ?? 0,
+        displayOrder,
         isFeatured: dto.isFeatured ?? false,
         createdBy: creator,
         updatedBy: creator,
@@ -222,7 +282,6 @@ export class ServicesService {
       service.descriptionVi = dto.descriptionVi;
     if (dto.imageUrl !== undefined) service.imageUrl = dto.imageUrl;
     if (dto.status !== undefined) service.status = dto.status;
-    if (dto.displayOrder !== undefined) service.displayOrder = dto.displayOrder;
     if (dto.isFeatured !== undefined) service.isFeatured = dto.isFeatured;
 
     service.updatedBy = updater;
@@ -267,6 +326,11 @@ export class ServicesService {
       });
 
       await manager.softDelete(Service, service.id);
+      await compactCollection(
+        manager,
+        OrderingCollections.services,
+        deleter.id,
+      );
     });
   }
 
@@ -397,6 +461,10 @@ export class ServicesService {
           ),
         ],
       );
+      const displayOrder = await getNextDisplayOrder(
+        manager,
+        OrderingCollections.serviceVariants(serviceId),
+      );
       const variant = variantRepository.create({
         service,
         nameEn: dto.nameEn,
@@ -417,7 +485,7 @@ export class ServicesService {
         caloriesBurnedMax: dto.caloriesBurnedMax,
         skillLevel: dto.skillLevel ?? ServiceSkillLevel.ALL_LEVELS,
         status: dto.status ?? ServiceStatus.DRAFT,
-        displayOrder: dto.displayOrder ?? 0,
+        displayOrder,
         isFeatured: dto.isFeatured ?? false,
         clubs,
         createdBy: creator,
@@ -438,6 +506,51 @@ export class ServicesService {
     const variant = await this.findVariantEntityById(serviceId, variantId);
 
     return mapServiceVariantToResponse(variant);
+  }
+
+  async findVariantReorderList(
+    serviceId: string,
+  ): Promise<ServiceVariantResponseDto[]> {
+    await this.ensureServiceExists(serviceId);
+    const variants = await this.serviceVariantRepository.find({
+      where: { service: { id: serviceId } },
+      relations: {
+        service: true,
+        clubs: true,
+        imageAsset: true,
+        bannerImageAsset: true,
+        modelImageAsset: true,
+        createdBy: true,
+        updatedBy: true,
+      },
+      order: {
+        displayOrder: 'ASC',
+        createdAt: 'ASC',
+        id: 'ASC',
+      },
+    });
+
+    return variants.map((variant) => mapServiceVariantToResponse(variant));
+  }
+
+  async reorderVariants(
+    serviceId: string,
+    orderedIds: string[],
+    currentUser: AuthenticatedUser,
+  ): Promise<ServiceVariantResponseDto[]> {
+    const updater = await this.findCurrentUserOrThrow(currentUser);
+    await this.ensureServiceExists(serviceId);
+
+    await this.serviceVariantRepository.manager.transaction(async (manager) => {
+      await reorderCollection(
+        manager,
+        OrderingCollections.serviceVariants(serviceId),
+        orderedIds,
+        updater.id,
+      );
+    });
+
+    return this.findVariantReorderList(serviceId);
   }
 
   async updateVariant(
@@ -532,9 +645,6 @@ export class ServicesService {
         managedVariant.skillLevel = dto.skillLevel;
       }
       if (dto.status !== undefined) managedVariant.status = dto.status;
-      if (dto.displayOrder !== undefined) {
-        managedVariant.displayOrder = dto.displayOrder;
-      }
       if (dto.isFeatured !== undefined) {
         managedVariant.isFeatured = dto.isFeatured;
       }
@@ -571,6 +681,11 @@ export class ServicesService {
       });
 
       await manager.softDelete(ServiceVariant, variant.id);
+      await compactCollection(
+        manager,
+        OrderingCollections.serviceVariants(serviceId),
+        deleter.id,
+      );
     });
   }
 

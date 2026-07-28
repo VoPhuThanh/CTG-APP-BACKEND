@@ -30,6 +30,13 @@ export class CustomerLead extends BaseEntityCore {
   @Column({ name: 'phone_number', length: 30 })
   phoneNumber!: string;
 
+  @Index('IDX_customer_leads_email')
+  @Column({ type: 'varchar', length: 254, nullable: true })
+  email!: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  message!: string | null;
+
   @Index()
   @Column({
     type: 'enum',

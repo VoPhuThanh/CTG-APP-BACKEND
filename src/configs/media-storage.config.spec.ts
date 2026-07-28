@@ -2,7 +2,6 @@ import { ConfigService } from '@nestjs/config';
 import {
   DEFAULT_MEDIA_UPLOAD_MAX_FILE_SIZE_BYTES,
   getMediaStorageConfig,
-  validateEnvironment,
 } from './media-storage.config';
 
 describe('media storage configuration', () => {
@@ -40,10 +39,39 @@ describe('media storage configuration', () => {
         useSsl: false,
       }),
     );
+    expect(config.bucket).toBe('ctg-media');
+    expect(config.s3).toBeNull();
+  });
+
+  it('supports an S3-compatible Cloudflare R2 endpoint', () => {
+    const config = getMediaStorageConfig(
+      new ConfigService({
+        MEDIA_STORAGE_PROVIDER: 's3',
+        MEDIA_PUBLIC_BASE_URL: 'https://media.example.com',
+        MEDIA_STORAGE_ENDPOINT: 'https://account-id.r2.cloudflarestorage.com',
+        MEDIA_STORAGE_REGION: 'auto',
+        MEDIA_STORAGE_BUCKET: 'ctg-media',
+        MEDIA_STORAGE_ACCESS_KEY_ID: 'access-key',
+        MEDIA_STORAGE_SECRET_ACCESS_KEY: 'secret-key',
+        MEDIA_STORAGE_FORCE_PATH_STYLE: 'true',
+      }),
+    );
+
+    expect(config.provider).toBe('s3');
+    expect(config.bucket).toBe('ctg-media');
+    expect(config.s3).toEqual(
+      expect.objectContaining({
+        endpointHost: 'account-id.r2.cloudflarestorage.com',
+        port: 443,
+        useSsl: true,
+        region: 'auto',
+        forcePathStyle: true,
+      }),
+    );
   });
 
   it.each([
-    [{ MEDIA_STORAGE_PROVIDER: 's3' }, 'Unsupported MEDIA_STORAGE_PROVIDER'],
+    [{ MEDIA_STORAGE_PROVIDER: 'other' }, 'Unsupported MEDIA_STORAGE_PROVIDER'],
     [
       { MEDIA_UPLOAD_MAX_FILE_SIZE_BYTES: '0' },
       'MEDIA_UPLOAD_MAX_FILE_SIZE_BYTES must be a positive integer',
@@ -71,6 +99,8 @@ describe('media storage configuration', () => {
       'MEDIA_PUBLIC_BASE_URL is required',
     ],
   ])('fails fast for invalid environment values', (environment, message) => {
-    expect(() => validateEnvironment(environment)).toThrow(message);
+    expect(() => getMediaStorageConfig(new ConfigService(environment))).toThrow(
+      message,
+    );
   });
 });

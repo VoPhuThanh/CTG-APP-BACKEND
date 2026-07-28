@@ -19,6 +19,7 @@ import {
 import { Authorized } from '@/cores/decorators/authorized.decorators';
 import { CurrentUser } from '@/cores/decorators/current-user.decorators';
 import { PaginationQueryDto } from '@/cores/pagination/pagination-query.dto';
+import { ReorderCollectionDto } from '@/cores/ordering/dtos/reorder-collection.dto';
 
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-users.interface';
 import { ServiceVariantCreateDto } from './dtos/create-service-variant.dto';
@@ -106,6 +107,23 @@ export class ServicesController {
     return this.servicesService.findAll(query);
   }
 
+  @ApiOperation({ summary: 'Find the complete service ordering collection' })
+  @Authorized('services:read')
+  @Get('reorder')
+  findReorderList() {
+    return this.servicesService.findReorderList();
+  }
+
+  @ApiOperation({ summary: 'Replace the complete service order' })
+  @Authorized('services:update')
+  @Patch('reorder')
+  reorder(
+    @Body() dto: ReorderCollectionDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.servicesService.reorder(dto.orderedIds, currentUser);
+  }
+
   @ApiOperation({ summary: 'Find service by id' })
   @Authorized('services:read')
   @Get(':id')
@@ -168,6 +186,32 @@ export class ServicesController {
     @Query() query: PaginationQueryDto,
   ) {
     return this.servicesService.findAllVariants(serviceId, query);
+  }
+
+  @ApiOperation({
+    summary: 'Find the complete variant ordering collection for a service',
+  })
+  @Authorized('services:read')
+  @Get(':serviceId/variants/reorder')
+  findVariantReorderList(@Param('serviceId') serviceId: string) {
+    return this.servicesService.findVariantReorderList(serviceId);
+  }
+
+  @ApiOperation({
+    summary: 'Replace the complete variant order for a service',
+  })
+  @Authorized('services:update')
+  @Patch(':serviceId/variants/reorder')
+  reorderVariants(
+    @Param('serviceId') serviceId: string,
+    @Body() dto: ReorderCollectionDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.servicesService.reorderVariants(
+      serviceId,
+      dto.orderedIds,
+      currentUser,
+    );
   }
 
   @ApiOperation({ summary: 'Create service variant' })

@@ -17,6 +17,10 @@ import { MembershipBenefit } from './membership-benefit.entity';
 import { MembershipPlan } from './membership-plan.entity';
 
 @Entity('membership_levels')
+@Index('UQ_membership_levels_active_display_order', ['displayOrder'], {
+  unique: true,
+  where: '"deletedAt" IS NULL',
+})
 export class MembershipLevel extends BaseEntityCore {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

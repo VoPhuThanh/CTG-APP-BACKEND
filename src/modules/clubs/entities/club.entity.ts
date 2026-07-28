@@ -19,6 +19,10 @@ import { ClubStatus } from '../enums/club.enum';
 import { ClubGalleryMediaAsset } from './club-gallery-media-asset.entity';
 
 @Entity('clubs')
+@Index('UQ_clubs_active_display_order', ['displayOrder'], {
+  unique: true,
+  where: '"deletedAt" IS NULL',
+})
 export class Club extends BaseEntityCore {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
