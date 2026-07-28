@@ -3,6 +3,7 @@ import {
   ConflictException,
   NotFoundException,
   PayloadTooLargeException,
+  InternalServerErrorException,
   UnauthorizedException,
   UnsupportedMediaTypeException,
 } from '@nestjs/common';
@@ -45,5 +46,9 @@ export const AppError = {
 
   unsupportedMediaType(code: AppErrorCode) {
     return new UnsupportedMediaTypeException(buildErrorBody(415, code));
+  },
+
+  internalServerError(code: AppErrorCode) {
+    return new InternalServerErrorException(buildErrorBody(500, code));
   },
 };

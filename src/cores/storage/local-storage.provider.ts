@@ -1,7 +1,14 @@
 import type { MediaStorageConfig } from '@/configs/media-storage.config';
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { constants } from 'node:fs';
-import { access, link, mkdir, unlink, writeFile } from 'node:fs/promises';
+import {
+  access,
+  link,
+  mkdir,
+  readFile,
+  unlink,
+  writeFile,
+} from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import type {
@@ -51,6 +58,10 @@ export class LocalStorageProvider implements StorageProvider, OnModuleInit {
     } catch (error) {
       if (!this.isMissingFileError(error)) throw error;
     }
+  }
+
+  async read(key: string): Promise<Buffer> {
+    return readFile(this.resolveKey(key));
   }
 
   async exists(key: string): Promise<boolean> {

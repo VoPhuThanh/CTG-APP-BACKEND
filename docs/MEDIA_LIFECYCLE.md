@@ -163,12 +163,16 @@ centralized reference registry. If references remain, it returns:
 
 The backend never cascades content deletion and never clears image fields as a
 side effect. With no references, it records `deletedBy` and soft-deletes the
-media row. It does not call `StorageProvider.delete`.
+media row. After that database transaction commits, it deletes the active and
+preserved-original objects through `StorageProvider.delete`, deduplicating equal
+keys. Provider cleanup failures are logged without disguising the successful
+database deletion.
 
-## Delayed physical cleanup boundary
+## Failed-cleanup reconciliation boundary
 
-There is intentionally no public purge endpoint and no scheduled cleanup job
-in this phase. `MediaAssetOrphanCleanupService` exposes only this assessment:
+There is no public purge endpoint. If immediate post-commit storage cleanup
+fails, `MediaAssetOrphanCleanupService` exposes this conservative assessment for
+an internal reconciliation job:
 
 ```ts
 assessForPhysicalDeletion(
@@ -179,16 +183,18 @@ assessForPhysicalDeletion(
   eligible: boolean;
   storageProvider: string | null;
   storageKey: string | null;
+  originalStorageKey: string | null;
+  storageKeys: string[];
   deletedAt: Date | null;
   referenceCount: number;
   reasons: string[];
 }>;
 ```
 
-A future internal job must supply an operational retention cutoff, select only
-`eligible: true` assets, and recheck references immediately before deleting the
-physical object. Provider failures must be retryable and audited. Database and
-storage deletion must not be presented as one atomic transaction.
+An internal job must supply an operational retention cutoff, select only
+`eligible: true` assets, and recheck references immediately before deleting all
+deduplicated `storageKeys`. Provider failures must be retryable and audited.
+Database and storage deletion must not be presented as one atomic transaction.
 
 ## Inline post images
 

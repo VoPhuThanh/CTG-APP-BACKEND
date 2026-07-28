@@ -1,6 +1,10 @@
 import { MetadataResponseDto } from '@/cores/dtos/metadata.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MediaAssetType, MediaAssetUsage } from '../enums/media-asset.enum';
+import {
+  CropMediaAssetDto,
+  type AppliedCropMetadata,
+} from './crop-media-asset.dto';
 
 export class MediaAssetResponseDto {
   @ApiProperty()
@@ -38,6 +42,24 @@ export class MediaAssetResponseDto {
 
   @ApiPropertyOptional({ nullable: true })
   checksum!: string | null;
+
+  @ApiProperty()
+  hasOriginal!: boolean;
+
+  @ApiPropertyOptional({ nullable: true })
+  originalMimeType!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  originalWidth!: number | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  originalHeight!: number | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  originalFileSizeBytes!: number | null;
+
+  @ApiPropertyOptional({ type: CropMediaAssetDto, nullable: true })
+  cropMetadata!: AppliedCropMetadata | null;
 
   @ApiProperty({ enum: MediaAssetType })
   type!: MediaAssetType;

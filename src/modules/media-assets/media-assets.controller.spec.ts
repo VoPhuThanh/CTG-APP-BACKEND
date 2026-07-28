@@ -19,6 +19,7 @@ import { MediaImageUploadInterceptor } from './interceptors/media-image-upload.i
 import { MediaAssetsController } from './media-assets.controller';
 import { MediaAssetsService } from './media-assets.service';
 import { MediaAssetReferencesService } from './media-asset-references.service';
+import { MediaImageProcessor } from './media-image-processor.service';
 
 describe('MediaAssetsController upload endpoint', () => {
   const png = Buffer.from(
@@ -48,10 +49,14 @@ describe('MediaAssetsController upload endpoint', () => {
   let mediaAssetRepository: {
     create: jest.Mock;
     save: jest.Mock;
+    manager: {
+      transaction: jest.Mock;
+    };
   };
   let storageProvider: {
     name: string;
     write: jest.Mock;
+    read: jest.Mock;
     delete: jest.Mock;
     exists: jest.Mock;
   };
@@ -71,7 +76,22 @@ describe('MediaAssetsController upload endpoint', () => {
         updatedAt: new Date('2026-07-16T00:00:00.000Z'),
       })),
       save: jest.fn((asset: MediaAsset) => Promise.resolve(asset)),
+      manager: {
+        transaction: jest.fn(),
+      },
     };
+    mediaAssetRepository.manager.transaction.mockImplementation(
+      (
+        callback: (manager: {
+          query: jest.Mock;
+          getRepository: jest.Mock;
+        }) => Promise<void>,
+      ) =>
+        callback({
+          query: jest.fn().mockResolvedValue([]),
+          getRepository: jest.fn().mockReturnValue(mediaAssetRepository),
+        }),
+    );
     storageProvider = {
       name: 'local',
       write: jest.fn(({ key }: { key: string }) =>
@@ -81,6 +101,7 @@ describe('MediaAssetsController upload endpoint', () => {
           bucket: null,
         }),
       ),
+      read: jest.fn().mockResolvedValue(png),
       delete: jest.fn().mockResolvedValue(undefined),
       exists: jest.fn(),
     };
@@ -97,6 +118,7 @@ describe('MediaAssetsController upload endpoint', () => {
           },
         },
         MediaImageUploadInterceptor,
+        MediaImageProcessor,
         PermissionsGuard,
         {
           provide: getRepositoryToken(User),
@@ -155,9 +177,9 @@ describe('MediaAssetsController upload endpoint', () => {
       expect.objectContaining({
         id: 'asset-1',
         name: 'Endpoint image',
-        url: expect.stringMatching(/^\/uploads\/media\/images\//),
+        url: expect.stringMatching(/^\/uploads\/media\/originals\//),
         storageProvider: 'local',
-        storageKey: expect.stringMatching(/^images\//),
+        storageKey: expect.stringMatching(/^originals\//),
         originalFilename: 'endpoint.png',
         mimeType: 'image/png',
         width: 1,
@@ -166,6 +188,59 @@ describe('MediaAssetsController upload endpoint', () => {
         altTextEn: 'Endpoint alt text',
       }),
     );
+  });
+
+  it('validates JSON crop instructions and returns the generated rendition', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/media-assets/upload')
+      .field('name', 'Cropped endpoint image')
+      .field(
+        'crop',
+        JSON.stringify({
+          x: 0,
+          y: 0,
+          width: 1,
+          height: 1,
+          rotation: 0,
+          quality: 85,
+        }),
+      )
+      .attach('file', png, {
+        filename: 'endpoint.png',
+        contentType: 'image/png',
+      })
+      .expect(201);
+
+    expect(storageProvider.write).toHaveBeenCalledTimes(2);
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        id: 'asset-1',
+        mimeType: 'image/webp',
+        storageKey: expect.stringMatching(/^renditions\//),
+        originalMimeType: 'image/png',
+        cropMetadata: expect.objectContaining({
+          x: 0,
+          y: 0,
+          width: 1,
+          height: 1,
+          outputFormat: 'webp',
+        }),
+      }),
+    );
+  });
+
+  it('rejects malformed multipart crop JSON before storage runs', async () => {
+    await request(app.getHttpServer())
+      .post('/media-assets/upload')
+      .field('name', 'Invalid crop')
+      .field('crop', '{not-json')
+      .attach('file', png, {
+        filename: 'endpoint.png',
+        contentType: 'image/png',
+      })
+      .expect(400);
+
+    expect(storageProvider.write).not.toHaveBeenCalled();
   });
 
   it('rejects a caller without media-assets:create before storage runs', async () => {

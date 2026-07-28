@@ -39,6 +39,7 @@ import type { MediaAssetUsageReportResponseDto } from './dtos/media-asset-usage.
 import type { MediaAssetQueryDto } from './dtos/media-asset-query.dto';
 import type { MediaAssetUpdateDto } from './dtos/update-media-asset.dto';
 import type { MediaAssetUploadDto } from './dtos/upload-media-asset.dto';
+import type { CropMediaAssetDto } from './dtos/crop-media-asset.dto';
 import { MediaAsset } from './entities/media-asset.entity';
 import { MediaAssetType, MediaAssetUsage } from './enums/media-asset.enum';
 import type { UploadedImageFile } from './interfaces/uploaded-image-file.interface';
@@ -48,6 +49,7 @@ import {
   mapMediaAssetsToResponses,
 } from './media-assets.mapper';
 import { MediaAssetReferencesService } from './media-asset-references.service';
+import { MediaImageProcessor } from './media-image-processor.service';
 import {
   inspectImage,
   normalizeDeclaredImageMimeType,
@@ -70,6 +72,12 @@ export interface ImportedMediaAssetResult {
   storageKey: string;
 }
 
+export interface OriginalMediaAssetFile {
+  buffer: Buffer;
+  mimeType: string;
+  filename: string;
+}
+
 @Injectable()
 export class MediaAssetsService {
   private readonly logger = new Logger(MediaAssetsService.name);
@@ -88,6 +96,8 @@ export class MediaAssetsService {
     private readonly storageConfig: MediaStorageConfig,
 
     private readonly mediaAssetReferencesService: MediaAssetReferencesService,
+
+    private readonly mediaImageProcessor: MediaImageProcessor,
   ) {}
 
   async findPublic(
@@ -272,8 +282,15 @@ export class MediaAssetsService {
         storageProvider: null,
         bucket: null,
         storageKey: null,
+        originalStorageKey: null,
         originalFilename: null,
         checksum: null,
+        originalMimeType: null,
+        originalWidth: null,
+        originalHeight: null,
+        originalFileSizeBytes: null,
+        originalChecksum: null,
+        cropMetadata: null,
         type: dto.type ?? MediaAssetType.IMAGE,
         usage: dto.usage ?? MediaAssetUsage.GENERAL,
         mimeType: dto.mimeType,
@@ -337,26 +354,68 @@ export class MediaAssetsService {
       throw AppError.badRequest(AppErrorCode.MEDIA_ASSET_MIME_MISMATCH);
     }
 
-    const storageKey = this.generateStorageKey(imageMetadata.extension);
-    const checksum = createHash('sha256').update(file.buffer).digest('hex');
+    const originalStorageKey = this.generateStorageKey(
+      imageMetadata.extension,
+      'originals',
+    );
+    const originalChecksum = this.checksum(file.buffer);
     const originalFilename = this.sanitizeOriginalFilename(
       file.originalname,
       imageMetadata.extension,
     );
+    const processedCrop = dto.crop
+      ? await this.mediaImageProcessor.crop(
+          file.buffer,
+          imageMetadata.mimeType,
+          dto.crop,
+        )
+      : null;
+    const normalizedOriginalDimensions = processedCrop
+      ? {
+          width: processedCrop.normalizedOriginalWidth,
+          height: processedCrop.normalizedOriginalHeight,
+        }
+      : await this.mediaImageProcessor.getNormalizedDimensions(
+          file.buffer,
+          imageMetadata.mimeType,
+        );
+    const renditionStorageKey = processedCrop
+      ? this.generateStorageKey('webp', 'renditions')
+      : originalStorageKey;
 
-    let storedObject: Awaited<ReturnType<StorageProvider['write']>>;
+    const storedKeys: string[] = [];
+    let originalStoredObject: Awaited<ReturnType<StorageProvider['write']>>;
+    let renditionStoredObject: Awaited<
+      ReturnType<StorageProvider['write']>
+    > | null = null;
     try {
-      storedObject = await this.storageProvider.write({
-        key: storageKey,
+      originalStoredObject = await this.storageProvider.write({
+        key: originalStorageKey,
         body: file.buffer,
         contentType: imageMetadata.mimeType,
         cacheControl: this.storageConfig.cacheControl,
       });
+      storedKeys.push(originalStoredObject.key);
+
+      if (processedCrop) {
+        renditionStoredObject = await this.storageProvider.write({
+          key: renditionStorageKey,
+          body: processedCrop.buffer,
+          contentType: processedCrop.mimeType,
+          cacheControl: this.storageConfig.cacheControl,
+        });
+        storedKeys.push(renditionStoredObject.key);
+      }
     } catch (error) {
-      await this.compensateStorageDelete(storageKey);
+      await this.deleteStorageObjectsSafely([
+        ...storedKeys,
+        originalStorageKey,
+        renditionStorageKey,
+      ]);
       throw error;
     }
 
+    const activeStoredObject = renditionStoredObject ?? originalStoredObject;
     let savedAsset: MediaAsset;
     try {
       savedAsset = await this.mediaAssetRepository.manager.transaction(
@@ -373,17 +432,25 @@ export class MediaAssetsService {
             descriptionEn: dto.descriptionEn,
             descriptionVi: dto.descriptionVi,
             url: null,
-            storageProvider: storedObject.provider,
-            bucket: storedObject.bucket,
-            storageKey: storedObject.key,
+            storageProvider: activeStoredObject.provider,
+            bucket: activeStoredObject.bucket,
+            storageKey: activeStoredObject.key,
+            originalStorageKey: originalStoredObject.key,
             originalFilename,
-            checksum,
+            checksum: processedCrop?.checksum ?? originalChecksum,
+            originalMimeType: imageMetadata.mimeType,
+            originalWidth: normalizedOriginalDimensions.width,
+            originalHeight: normalizedOriginalDimensions.height,
+            originalFileSizeBytes: file.buffer.length,
+            originalChecksum,
+            cropMetadata: processedCrop?.cropMetadata ?? null,
             type: MediaAssetType.IMAGE,
             usage: dto.usage ?? MediaAssetUsage.GENERAL,
-            mimeType: imageMetadata.mimeType,
-            width: imageMetadata.width,
-            height: imageMetadata.height,
-            fileSizeBytes: file.buffer.length,
+            mimeType: processedCrop?.mimeType ?? imageMetadata.mimeType,
+            width: processedCrop?.width ?? normalizedOriginalDimensions.width,
+            height:
+              processedCrop?.height ?? normalizedOriginalDimensions.height,
+            fileSizeBytes: processedCrop?.fileSizeBytes ?? file.buffer.length,
             isActive: dto.isActive ?? true,
             displayOrder,
             createdBy: creator,
@@ -393,7 +460,7 @@ export class MediaAssetsService {
         },
       );
     } catch (error) {
-      await this.compensateStorageDelete(storedObject.key);
+      await this.deleteStorageObjectsSafely(storedKeys);
       throw error;
     }
 
@@ -429,6 +496,11 @@ export class MediaAssetsService {
     }
 
     const checksum = createHash('sha256').update(input.buffer).digest('hex');
+    const normalizedOriginalDimensions =
+      await this.mediaImageProcessor.getNormalizedDimensions(
+        input.buffer,
+        imageMetadata.mimeType,
+      );
     const existingAsset = await this.mediaAssetRepository.findOne({
       where: {
         checksum,
@@ -469,7 +541,7 @@ export class MediaAssetsService {
         });
         wroteObject = true;
       } catch (error) {
-        await this.compensateStorageDelete(storageKey);
+        await this.deleteStorageObjectSafely(storageKey);
         throw error;
       }
     }
@@ -489,16 +561,23 @@ export class MediaAssetsService {
               storageProvider: this.storageProvider.name,
               bucket: this.storageConfig.bucket,
               storageKey,
+              originalStorageKey: storageKey,
               originalFilename: this.sanitizeOriginalFilename(
                 input.originalFilename,
                 imageMetadata.extension,
               ),
               checksum,
+              originalMimeType: imageMetadata.mimeType,
+              originalWidth: normalizedOriginalDimensions.width,
+              originalHeight: normalizedOriginalDimensions.height,
+              originalFileSizeBytes: input.buffer.length,
+              originalChecksum: checksum,
+              cropMetadata: null,
               type: MediaAssetType.IMAGE,
               usage: input.usage ?? MediaAssetUsage.GENERAL,
               mimeType: imageMetadata.mimeType,
-              width: imageMetadata.width,
-              height: imageMetadata.height,
+              width: normalizedOriginalDimensions.width,
+              height: normalizedOriginalDimensions.height,
               fileSizeBytes: input.buffer.length,
               isActive: true,
               displayOrder,
@@ -525,7 +604,7 @@ export class MediaAssetsService {
           storageKey,
         };
       }
-      if (wroteObject) await this.compensateStorageDelete(storageKey);
+      if (wroteObject) await this.deleteStorageObjectSafely(storageKey);
       throw error;
     }
   }
@@ -579,8 +658,96 @@ export class MediaAssetsService {
     return this.findOne(asset.id);
   }
 
+  async crop(
+    id: string,
+    dto: CropMediaAssetDto,
+    currentUser: AuthenticatedUser,
+  ): Promise<MediaAssetResponseDto> {
+    const updater = await this.findCurrentUserOrThrow(currentUser);
+    const asset = await this.findEntityById(id);
+    this.assertRecroppable(asset);
+
+    const original = await this.readOriginalOrThrow(asset);
+    const originalMimeType =
+      asset.originalMimeType ?? this.inspectStoredOriginal(original);
+    const processed = await this.mediaImageProcessor.crop(
+      original,
+      originalMimeType,
+      dto,
+    );
+    const newStorageKey = this.generateStorageKey('webp', 'renditions');
+    let wroteRendition = false;
+
+    try {
+      await this.storageProvider.write({
+        key: newStorageKey,
+        body: processed.buffer,
+        contentType: processed.mimeType,
+        cacheControl: this.storageConfig.cacheControl,
+      });
+      wroteRendition = true;
+    } catch (error) {
+      await this.deleteStorageObjectSafely(newStorageKey);
+      throw error;
+    }
+
+    let supersededStorageKey: string | null = null;
+    try {
+      await this.mediaAssetRepository.manager.transaction(async (manager) => {
+        const repository = manager.getRepository(MediaAsset);
+        const lockedAsset = await repository.findOne({
+          where: { id },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!lockedAsset) {
+          throw AppError.notFound(AppErrorCode.MEDIA_ASSET_NOT_FOUND);
+        }
+        this.assertRecroppable(lockedAsset);
+
+        supersededStorageKey = lockedAsset.storageKey;
+        lockedAsset.storageKey = newStorageKey;
+        lockedAsset.checksum = processed.checksum;
+        lockedAsset.mimeType = processed.mimeType;
+        lockedAsset.width = processed.width;
+        lockedAsset.height = processed.height;
+        lockedAsset.fileSizeBytes = processed.fileSizeBytes;
+        lockedAsset.cropMetadata = processed.cropMetadata;
+        lockedAsset.updatedBy = updater;
+        await repository.save(lockedAsset);
+      });
+    } catch (error) {
+      if (wroteRendition) {
+        await this.deleteStorageObjectSafely(newStorageKey);
+      }
+      throw error;
+    }
+
+    if (
+      supersededStorageKey &&
+      supersededStorageKey !== asset.originalStorageKey &&
+      supersededStorageKey !== newStorageKey
+    ) {
+      await this.deleteStorageObjectSafely(supersededStorageKey);
+    }
+
+    return this.findOne(id);
+  }
+
+  async getOriginal(id: string): Promise<OriginalMediaAssetFile> {
+    const asset = await this.findEntityById(id);
+    this.assertManagedOriginal(asset);
+    const buffer = await this.readOriginalOrThrow(asset);
+
+    return {
+      buffer,
+      mimeType: asset.originalMimeType ?? this.inspectStoredOriginal(buffer),
+      filename: asset.originalFilename ?? `media-${asset.id}`,
+    };
+  }
+
   async delete(id: string, currentUser: AuthenticatedUser): Promise<void> {
     const deleter = await this.findCurrentUserOrThrow(currentUser);
+    let managedStorageKeys: string[] = [];
 
     await this.mediaAssetRepository.manager.transaction(async (manager) => {
       const asset = await manager.getRepository(MediaAsset).findOne({
@@ -605,6 +772,13 @@ export class MediaAssetsService {
         });
       }
 
+      if (asset.storageProvider === this.storageProvider.name) {
+        managedStorageKeys = [
+          asset.storageKey,
+          asset.originalStorageKey,
+        ].filter((key): key is string => Boolean(key));
+      }
+
       await manager.update(MediaAsset, asset.id, {
         deletedBy: deleter,
       });
@@ -616,6 +790,8 @@ export class MediaAssetsService {
         deleter.id,
       );
     });
+
+    await this.deleteStorageObjectsSafely(managedStorageKeys);
   }
 
   private async findEntityById(id: string): Promise<MediaAsset> {
@@ -656,12 +832,15 @@ export class MediaAssetsService {
     return user;
   }
 
-  private generateStorageKey(extension: string): string {
+  private generateStorageKey(
+    extension: string,
+    kind: 'images' | 'originals' | 'renditions' = 'images',
+  ): string {
     const now = new Date();
     const year = String(now.getUTCFullYear());
     const month = String(now.getUTCMonth() + 1).padStart(2, '0');
 
-    return `images/${year}/${month}/${randomUUID()}.${extension}`;
+    return `${kind}/${year}/${month}/${randomUUID()}.${extension}`;
   }
 
   private sanitizeOriginalFilename(
@@ -681,14 +860,73 @@ export class MediaAssetsService {
     return sanitized || `upload.${extension}`;
   }
 
-  private async compensateStorageDelete(storageKey: string): Promise<void> {
+  private async deleteStorageObjectSafely(storageKey: string): Promise<void> {
     try {
       await this.storageProvider.delete(storageKey);
     } catch (cleanupError) {
       this.logger.error(
-        `Failed to delete storage object after upload failure: ${storageKey}`,
+        `Failed to delete media storage object during cleanup: ${storageKey}`,
         cleanupError instanceof Error ? cleanupError.stack : undefined,
       );
     }
+  }
+
+  private async deleteStorageObjectsSafely(
+    storageKeys: string[],
+  ): Promise<void> {
+    for (const storageKey of new Set(storageKeys)) {
+      await this.deleteStorageObjectSafely(storageKey);
+    }
+  }
+
+  private assertManagedOriginal(asset: MediaAsset): void {
+    if (!asset.storageProvider || !asset.storageKey) {
+      throw AppError.conflict(AppErrorCode.MEDIA_ASSET_UNMANAGED_OR_EXTERNAL);
+    }
+    if (!asset.originalStorageKey) {
+      throw AppError.conflict(AppErrorCode.MEDIA_ASSET_ORIGINAL_UNAVAILABLE);
+    }
+    if (asset.storageProvider !== this.storageProvider.name) {
+      throw AppError.internalServerError(
+        AppErrorCode.MEDIA_ASSET_ORIGINAL_STORAGE_RETRIEVAL_FAILED,
+      );
+    }
+  }
+
+  private assertRecroppable(asset: MediaAsset): void {
+    this.assertManagedOriginal(asset);
+    if (asset.type !== MediaAssetType.IMAGE) {
+      throw AppError.badRequest(AppErrorCode.MEDIA_ASSET_NOT_IMAGE);
+    }
+  }
+
+  private async readOriginalOrThrow(asset: MediaAsset): Promise<Buffer> {
+    this.assertManagedOriginal(asset);
+
+    try {
+      return await this.storageProvider.read(asset.originalStorageKey!);
+    } catch (error) {
+      this.logger.error(
+        `Failed to read preserved original for media asset ${asset.id}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw AppError.internalServerError(
+        AppErrorCode.MEDIA_ASSET_ORIGINAL_STORAGE_RETRIEVAL_FAILED,
+      );
+    }
+  }
+
+  private inspectStoredOriginal(buffer: Buffer): string {
+    try {
+      return inspectImage(buffer).mimeType;
+    } catch {
+      throw AppError.internalServerError(
+        AppErrorCode.MEDIA_ASSET_ORIGINAL_STORAGE_RETRIEVAL_FAILED,
+      );
+    }
+  }
+
+  private checksum(buffer: Buffer): string {
+    return createHash('sha256').update(buffer).digest('hex');
   }
 }

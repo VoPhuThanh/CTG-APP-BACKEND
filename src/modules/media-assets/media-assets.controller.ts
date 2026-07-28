@@ -3,10 +3,12 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   Param,
   Patch,
   Post,
   Query,
+  StreamableFile,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -17,6 +19,7 @@ import {
   ApiConsumes,
   ApiOkResponse,
   ApiOperation,
+  ApiProduces,
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
@@ -34,6 +37,7 @@ import {
 } from './dtos/media-asset-usage.dto';
 import { MediaAssetUpdateDto } from './dtos/update-media-asset.dto';
 import { MediaAssetUploadDto } from './dtos/upload-media-asset.dto';
+import { CropMediaAssetDto } from './dtos/crop-media-asset.dto';
 import { MediaAssetType, MediaAssetUsage } from './enums/media-asset.enum';
 import { MediaImageUploadInterceptor } from './interceptors/media-image-upload.interceptor';
 import type { UploadedImageFile } from './interfaces/uploaded-image-file.interface';
@@ -120,6 +124,22 @@ export class MediaAssetsController {
     return this.mediaAssetsService.findOne(id);
   }
 
+  @ApiOperation({ summary: 'Stream the preserved original image' })
+  @ApiProduces('image/jpeg', 'image/png', 'image/gif', 'image/webp')
+  @Authorized('media-assets:read')
+  @Header('Cache-Control', 'private, no-store')
+  @Get(':id/original')
+  async getOriginal(@Param('id') id: string): Promise<StreamableFile> {
+    const original = await this.mediaAssetsService.getOriginal(id);
+    const encodedFilename = encodeURIComponent(original.filename);
+
+    return new StreamableFile(original.buffer, {
+      type: original.mimeType,
+      disposition: `inline; filename*=UTF-8''${encodedFilename}`,
+      length: original.buffer.length,
+    });
+  }
+
   @ApiOperation({ summary: 'Upload a managed raster image' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -139,6 +159,11 @@ export class MediaAssetsController {
         descriptionVi: { type: 'string' },
         usage: { type: 'string', enum: Object.values(MediaAssetUsage) },
         isActive: { type: 'boolean', default: true },
+        crop: {
+          type: 'string',
+          description:
+            'Optional JSON crop instructions with x, y, width, height, rotation, aspectRatio, outputFormat, and quality.',
+        },
       },
     },
   })
@@ -151,6 +176,19 @@ export class MediaAssetsController {
     @CurrentUser() currentUser: AuthenticatedUser,
   ) {
     return this.mediaAssetsService.uploadImage(file, dto, currentUser);
+  }
+
+  @ApiOperation({
+    summary: 'Generate a new crop from the preserved original image',
+  })
+  @Authorized('media-assets:update')
+  @Post(':id/crop')
+  crop(
+    @Param('id') id: string,
+    @Body() dto: CropMediaAssetDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.mediaAssetsService.crop(id, dto, currentUser);
   }
 
   @ApiOperation({ summary: 'Create transitional external media asset' })
