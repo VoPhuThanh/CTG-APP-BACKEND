@@ -19,6 +19,7 @@ import { MembershipLevel } from '../memberships/entities/membership-level.entity
 import { SiteSetting } from '../site-settings/entities/site-setting.entity';
 import { LegacyServiceMediaSourceReader } from '../services/legacy-service-media-source.reader';
 import { LegacyEditorialMediaImportService } from './legacy-editorial-media-import.service';
+import { MediaImageProcessor } from './media-image-processor.service';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { LegacyEditorialMediaImportService } from './legacy-editorial-media-impo
     MediaAssetReferencesService,
     MediaAssetOrphanCleanupService,
     MediaImageUploadInterceptor,
+    MediaImageProcessor,
   ],
   controllers: [MediaAssetsController],
   exports: [

@@ -30,6 +30,8 @@ export interface MediaAssetOrphanAssessment {
   eligible: boolean;
   storageProvider: string | null;
   storageKey: string | null;
+  originalStorageKey: string | null;
+  storageKeys: string[];
   deletedAt: Date | null;
   referenceCount: number;
   reasons: string[];

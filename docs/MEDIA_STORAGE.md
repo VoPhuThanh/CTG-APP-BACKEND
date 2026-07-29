@@ -57,12 +57,14 @@ production deployment that expects durable media.
 - Content type: `multipart/form-data`.
 - Required parts: binary `file` and text `name`.
 - Optional fields: `altTextEn`, `altTextVi`, `descriptionEn`, `descriptionVi`,
-  `usage`, `isActive`, and `displayOrder`.
+  `usage`, `isActive`, and JSON-encoded `crop`.
 
 The endpoint returns `MediaAssetResponseDto`, including `id`, public `url`,
-`storageProvider`, `storageKey`, normalized `mimeType`, dimensions, byte size,
-SHA-256 `checksum`, sanitized `originalFilename`, localized alternative text,
-and standard audit metadata. Internal filesystem paths are never serialized.
+`storageProvider`, active `storageKey`, normalized `mimeType`, dimensions, byte
+size, SHA-256 `checksum`, sanitized `originalFilename`, `hasOriginal`, original
+dimensions/MIME/byte size, `cropMetadata`, localized alternative text, and
+standard audit metadata. The original storage key and checksum are not
+serialized.
 
 Example:
 
@@ -93,15 +95,19 @@ reads width and height, normalizes MIME metadata from content, and requires the
 declared MIME type to match. The deployment allowlist is then applied to the
 detected type.
 
-The first implementation preserves original raster bytes. It does not resize,
-re-encode, strip animation, or convert formats, avoiding unexpected loss of
-transparency, animation, or image quality. Image normalization can be added
-later as a separate explicit policy behind a tested image-processing boundary.
+Uploads without `crop` preserve and store the original once. The active and
+original keys point to that same object and `cropMetadata` is null. Uploads with
+`crop` preserve the unchanged original under an `originals/` key and use Sharp
+to normalize EXIF orientation, apply a discrete rotation, validate/extract the
+pixel crop, and encode a separate WebP rendition at quality 85 by default.
+JPEG, PNG, and WebP are croppable. GIF uploads remain supported, but GIF and
+other animated inputs cannot be cropped.
 
 Storage keys use this server-controlled shape:
 
 ```text
-images/<UTC year>/<UTC month>/<random UUID>.<detected extension>
+originals/<UTC year>/<UTC month>/<random UUID>.<detected extension>
+renditions/<UTC year>/<UTC month>/<random UUID>.webp
 ```
 
 Client filenames are retained only as sanitized display/audit metadata. The
@@ -109,21 +115,37 @@ local provider accepts only relative POSIX-style keys and independently rejects
 absolute paths, backslashes, empty segments, null bytes, `.` and `..` segments,
 and any resolved path outside the configured root.
 
+## Recrop and original endpoints
+
+`POST /media-assets/:id/crop` requires `media-assets:update` and accepts the
+validated JSON crop object. Coordinates are whole pixels in the EXIF-normalized
+image after `rotation` (`0`, `90`, `180`, or `270`). Recropping always reads
+`originalStorageKey`, updates the existing media ID/current fields, and deletes
+the superseded rendition only after the new object and database update succeed.
+
+`GET /media-assets/:id/original` requires `media-assets:read` and streams the
+preserved original with its MIME type, an inline content disposition, and
+`Cache-Control: private, no-store`. Public DTOs and public routes expose only
+the active rendition.
+
 ## Persistence and cleanup
 
 Upload order is:
 
 1. authorize and resolve the current audit user;
 2. validate file size, declared MIME, actual image structure, and dimensions;
-3. write the object through the provider;
-4. save the `MediaAsset` row;
-5. return the mapped response.
+3. process the crop when supplied;
+4. write the original and, when cropped, the rendition;
+5. save the `MediaAsset` row;
+6. return the mapped response.
 
-Provider write failures trigger idempotent compensating deletion of the
-server-generated key and never attempt a database insert. Database create/save
-failures also delete the stored object. The local provider publishes a complete
-temporary file with a no-overwrite hard-link operation, so a failed write does
-not expose a partial target object.
+Provider write failures trigger idempotent compensating deletion of
+server-generated keys and never attempt a database insert. Database create/save
+failures also delete every newly stored object. A cropped upload stores the
+unchanged original plus a generated WebP rendition; an uncropped upload stores
+one object and points both active and original keys to it. The local provider
+publishes a complete temporary file with a no-overwrite hard-link operation, so
+a failed write does not expose a partial target object.
 
 Storage and PostgreSQL cannot share a transaction. If compensating deletion
 itself fails, the original failure is preserved and the cleanup failure is
@@ -132,15 +154,17 @@ logged with the storage key for operational reconciliation.
 Normal `DELETE /media-assets/:id` checks the centralized relational usage
 registry first. It returns `409 MEDIA_ASSET.IN_USE` with the usage report when
 any fixed-slot reference remains. An unreferenced asset is soft-deleted in the
-database and the binary is deliberately retained.
+database, then its deduplicated active/original storage keys are deleted after
+the transaction commits.
 
 `MediaAssetOrphanCleanupService.assessForPhysicalDeletion(assetId,
-deletedBefore)` is the conservative future-job boundary. Eligibility requires
-a managed storage provider/key pair, a soft-delete timestamp at or before the
-caller-supplied retention cutoff, and zero references at assessment time. The
-current application has no purge endpoint or scheduled purge job. A future job
-must recheck references immediately before provider deletion, retry provider
-failures, and record an audit trail. See `docs/MEDIA_LIFECYCLE.md`.
+deletedBefore)` is the conservative reconciliation boundary when immediate
+cleanup fails. Eligibility requires managed storage keys, a soft-delete
+timestamp at or before the caller-supplied retention cutoff, and zero references
+at assessment time. The returned `storageKeys` list contains the deduplicated
+active and original keys. A future job must recheck references immediately
+before provider deletion, retry failures, and record an audit trail. See
+`docs/MEDIA_LIFECYCLE.md`.
 
 ## Managed versus external records
 
@@ -220,7 +244,8 @@ physical purge job.
 
 ## Adding another provider
 
-Implement `StorageProvider` with `write`, idempotent `delete`, and `exists`.
+Implement `StorageProvider` with `write`, `read`, idempotent `delete`, and
+`exists`.
 Public URL resolution remains centralized in
 `media-asset-url.resolver.ts`; provider SDK code must not leak into application
 services or mappers.

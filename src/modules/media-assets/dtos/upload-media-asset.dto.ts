@@ -8,6 +8,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { MediaAssetUsage } from '../enums/media-asset.enum';
+import { OptionalMultipartCropDto } from './crop-media-asset.dto';
 
 function parseMultipartBoolean({ value }: { value: unknown }): unknown {
   if (value === 'true') return true;
@@ -15,7 +16,7 @@ function parseMultipartBoolean({ value }: { value: unknown }): unknown {
   return value;
 }
 
-export class MediaAssetUploadDto {
+export class MediaAssetUploadDto extends OptionalMultipartCropDto {
   @ApiProperty({ example: 'Homepage hero background' })
   @IsString()
   @MaxLength(150)

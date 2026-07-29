@@ -1,4 +1,5 @@
 import type { MediaStorageConfig } from '@/configs/media-storage.config';
+import { Readable } from 'node:stream';
 import { MinioStorageProvider } from './minio-storage.provider';
 
 describe('MinioStorageProvider', () => {
@@ -30,6 +31,7 @@ describe('MinioStorageProvider', () => {
       putObject: jest.fn().mockResolvedValue({ etag: 'etag' }),
       removeObject: jest.fn().mockResolvedValue(undefined),
       statObject: jest.fn().mockResolvedValue({ size: 3 }),
+      getObject: jest.fn().mockResolvedValue(Readable.from(['ab', 'c'])),
     };
     (
       provider as unknown as {
@@ -81,6 +83,18 @@ describe('MinioStorageProvider', () => {
     expect(client.removeObject).toHaveBeenCalledWith(
       'ctg-media',
       'images/asset.png',
+    );
+  });
+
+  it('reads object bytes for authenticated original retrieval and recropping', async () => {
+    const { provider, client } = createProvider();
+
+    await expect(provider.read('originals/asset.png')).resolves.toEqual(
+      Buffer.from('abc'),
+    );
+    expect(client.getObject).toHaveBeenCalledWith(
+      'ctg-media',
+      'originals/asset.png',
     );
   });
 

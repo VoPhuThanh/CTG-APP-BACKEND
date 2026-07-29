@@ -9,6 +9,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { MediaAssetType, MediaAssetUsage } from '../enums/media-asset.enum';
+import type { AppliedCropMetadata } from '../dtos/crop-media-asset.dto';
 
 @Entity('media_assets')
 @Index('IDX_media_assets_deleted_at', ['deletedAt'], {
@@ -62,6 +63,14 @@ export class MediaAsset extends BaseEntityCore {
   storageKey!: string | null;
 
   @Column({
+    name: 'original_storage_key',
+    type: 'varchar',
+    length: 1024,
+    nullable: true,
+  })
+  originalStorageKey!: string | null;
+
+  @Column({
     name: 'original_filename',
     type: 'varchar',
     length: 255,
@@ -72,6 +81,34 @@ export class MediaAsset extends BaseEntityCore {
   @Index('IDX_media_assets_checksum')
   @Column({ type: 'varchar', length: 128, nullable: true })
   checksum!: string | null;
+
+  @Column({
+    name: 'original_mime_type',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  originalMimeType!: string | null;
+
+  @Column({ name: 'original_width', type: 'int', nullable: true })
+  originalWidth!: number | null;
+
+  @Column({ name: 'original_height', type: 'int', nullable: true })
+  originalHeight!: number | null;
+
+  @Column({ name: 'original_file_size_bytes', type: 'int', nullable: true })
+  originalFileSizeBytes!: number | null;
+
+  @Column({
+    name: 'original_checksum',
+    type: 'varchar',
+    length: 128,
+    nullable: true,
+  })
+  originalChecksum!: string | null;
+
+  @Column({ name: 'crop_metadata', type: 'jsonb', nullable: true })
+  cropMetadata!: AppliedCropMetadata | null;
 
   @Column({
     type: 'enum',

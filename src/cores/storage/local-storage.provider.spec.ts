@@ -44,6 +44,7 @@ describe('LocalStorageProvider', () => {
     });
 
     await expect(provider.exists(key)).resolves.toBe(true);
+    await expect(provider.read(key)).resolves.toEqual(body);
     expect(stored).toEqual({
       key,
       provider: 'local',

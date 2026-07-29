@@ -25,6 +25,12 @@ export function mapMediaAssetToResponse(
   dto.storageKey = asset.storageKey ?? null;
   dto.originalFilename = asset.originalFilename ?? null;
   dto.checksum = asset.checksum ?? null;
+  dto.hasOriginal = Boolean(asset.originalStorageKey);
+  dto.originalMimeType = asset.originalMimeType ?? null;
+  dto.originalWidth = asset.originalWidth ?? null;
+  dto.originalHeight = asset.originalHeight ?? null;
+  dto.originalFileSizeBytes = asset.originalFileSizeBytes ?? null;
+  dto.cropMetadata = asset.cropMetadata ?? null;
   dto.type = asset.type;
   dto.usage = asset.usage;
   dto.mimeType = asset.mimeType ?? null;

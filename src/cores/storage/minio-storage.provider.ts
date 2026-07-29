@@ -66,6 +66,22 @@ export class MinioStorageProvider implements StorageProvider, OnModuleInit {
     await this.client.removeObject(this.bucket, key);
   }
 
+  async read(key: string): Promise<Buffer> {
+    this.assertSafeKey(key);
+    const stream = await this.client.getObject(this.bucket, key);
+    const chunks: Buffer[] = [];
+
+    for await (const chunk of stream as AsyncIterable<unknown>) {
+      if (typeof chunk === 'string' || chunk instanceof Uint8Array) {
+        chunks.push(Buffer.from(chunk));
+      } else {
+        throw new Error('Storage provider returned a non-buffer object chunk.');
+      }
+    }
+
+    return Buffer.concat(chunks);
+  }
+
   async exists(key: string): Promise<boolean> {
     this.assertSafeKey(key);
     try {

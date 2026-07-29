@@ -71,6 +71,7 @@ describe('LegacyServiceMediaImportService', () => {
           bucket: null,
         }),
       ),
+      read: jest.fn(),
       delete: jest.fn(),
     };
     const storageConfig: MediaStorageConfig = {
@@ -154,6 +155,7 @@ describe('LegacyServiceMediaImportService', () => {
       name: 'local',
       exists: jest.fn(),
       write: jest.fn(),
+      read: jest.fn(),
       delete: jest.fn(),
     };
     const sourceReader = {

@@ -16,6 +16,7 @@ describe('MediaAssetOrphanCleanupService', () => {
         deletedAt,
         storageProvider: 'local',
         storageKey: 'images/2026/07/asset.png',
+        originalStorageKey: 'images/2026/07/asset.png',
       }),
     };
     const references = {
@@ -33,6 +34,8 @@ describe('MediaAssetOrphanCleanupService', () => {
       eligible: true,
       storageProvider: 'local',
       storageKey: 'images/2026/07/asset.png',
+      originalStorageKey: 'images/2026/07/asset.png',
+      storageKeys: ['images/2026/07/asset.png'],
       deletedAt,
       referenceCount: 0,
       reasons: [],
@@ -46,6 +49,7 @@ describe('MediaAssetOrphanCleanupService', () => {
         deletedAt,
         storageProvider: 'local',
         storageKey: 'images/2026/07/asset.png',
+        originalStorageKey: 'originals/2026/07/asset.png',
       }),
     };
     const references = {
@@ -66,5 +70,9 @@ describe('MediaAssetOrphanCleanupService', () => {
     expect(result.eligible).toBe(false);
     expect(result.referenceCount).toBe(1);
     expect(result.reasons).toContain('asset_is_referenced');
+    expect(result.storageKeys).toEqual([
+      'images/2026/07/asset.png',
+      'originals/2026/07/asset.png',
+    ]);
   });
 });

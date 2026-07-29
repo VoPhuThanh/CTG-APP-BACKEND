@@ -75,6 +75,20 @@ export const AppErrorMessage: Record<AppErrorCode, string> = {
     'The declared MIME type does not match the uploaded image content.',
   [AppErrorCode.MEDIA_ASSET_MANAGED_FILE_IMMUTABLE]:
     'Managed file metadata cannot be changed through the metadata update endpoint.',
+  [AppErrorCode.MEDIA_ASSET_INVALID_CROP_RECTANGLE]:
+    'Crop coordinates and dimensions must be finite whole pixels with positive dimensions.',
+  [AppErrorCode.MEDIA_ASSET_CROP_OUT_OF_BOUNDS]:
+    'The crop rectangle must be fully inside the normalized, rotated original image.',
+  [AppErrorCode.MEDIA_ASSET_CROP_UNSUPPORTED_IMAGE_TYPE]:
+    'Cropping supports only non-animated JPEG, PNG, and WebP images.',
+  [AppErrorCode.MEDIA_ASSET_ORIGINAL_UNAVAILABLE]:
+    'The preserved original image is unavailable for this media asset.',
+  [AppErrorCode.MEDIA_ASSET_UNMANAGED_OR_EXTERNAL]:
+    'External or unmanaged media assets cannot be cropped.',
+  [AppErrorCode.MEDIA_ASSET_IMAGE_PROCESSING_FAILED]:
+    'The image could not be processed.',
+  [AppErrorCode.MEDIA_ASSET_ORIGINAL_STORAGE_RETRIEVAL_FAILED]:
+    'The preserved original image could not be loaded from storage.',
 
   [AppErrorCode.SITE_SETTING_NOT_FOUND]: 'Site setting not found.',
   [AppErrorCode.SITE_SETTING_KEY_ALREADY_EXISTS]:
